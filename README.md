@@ -1,9 +1,9 @@
-184838390535
-WingSafe-AeroNav-CrossAccount-dev
-WingSafe-AeroTraffic-CrossAccount-dev
-WingSafe-AeroWeather-CrossAccount-dev
-WingSafe-DataScientist-CrossAccount-dev
-WingSafe-FlightRadarViewer-CrossAccount-dev
+- 184838390535
+- WingSafe-AeroNav-CrossAccount-dev
+- WingSafe-AeroTraffic-CrossAccount-dev
+- WingSafe-AeroWeather-CrossAccount-dev
+- WingSafe-DataScientist-CrossAccount-dev
+- WingSafe-FlightRadarViewer-CrossAccount-dev
 
 # Important
 * Redshift to LakeFormation is currently using role chain (2 roles) to access data and permission
