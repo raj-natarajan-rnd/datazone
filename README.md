@@ -13,6 +13,24 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # Aero Data Platform - Multi-Account Architecture
 
 A comprehensive data platform demonstrating cross-account data governance, column-level security, and role-based access control using AWS services including S3, Glue, LakeFormation, Athena, and Redshift Serverless.
