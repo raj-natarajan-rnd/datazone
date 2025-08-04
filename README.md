@@ -12,7 +12,23 @@
 * SSO user -> Permission Set for Application / user level -> Login to Analytics account to use Tools -> May have 1 or more application level permission set -> Select permission set -> switch to local role specific to that permission set. This is a good method and works fine with console and python. SSO may be able to automatically assume another role - but needs deep dive
 
 
-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
 
 
 
