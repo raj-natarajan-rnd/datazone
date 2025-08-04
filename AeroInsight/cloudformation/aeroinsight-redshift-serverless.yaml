@@ -1,0 +1,163 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AeroInsight Redshift Serverless setup with WingSafe catalog access'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+  WingSafeAccountId:
+    Type: String
+    Default: "184838390535"
+    Description: WingSafe account ID
+
+Resources:
+  # VPC for Redshift
+  RedshiftVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub 'AeroInsight-Redshift-VPC-${Environment}'
+
+  # Private Subnets
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref RedshiftVPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub 'AeroInsight-Private-Subnet-1-${Environment}'
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref RedshiftVPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub 'AeroInsight-Private-Subnet-2-${Environment}'
+
+  # Security Group
+  RedshiftSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Redshift Serverless
+      VpcId: !Ref RedshiftVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5439
+          ToPort: 5439
+          CidrIp: 10.0.0.0/16
+
+  # IAM Role for Redshift Serverless
+  RedshiftServerlessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'AeroInsight-Redshift-Role-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 
+                - redshift.amazonaws.com
+                - redshift-serverless.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: RedshiftWingSafeAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sts:AssumeRole
+                Resource:
+                  - !Sub 'arn:aws:iam::${WingSafeAccountId}:role/WingSafe-DataScientist-CrossAccount-${Environment}'
+                  - !Sub 'arn:aws:iam::${WingSafeAccountId}:role/WingSafe-FlightRadarViewer-CrossAccount-${Environment}'
+              - Effect: Allow
+                Action:
+                  - glue:GetDatabase
+                  - glue:GetDatabases
+                  - glue:GetTable
+                  - glue:GetTables
+                  - glue:GetPartition
+                  - glue:GetPartitions
+                Resource: 
+                  - "*"
+                  - !Sub 'arn:aws:glue:us-east-1:${WingSafeAccountId}:catalog'
+                  - !Sub 'arn:aws:glue:us-east-1:${WingSafeAccountId}:database/flightradar_db'
+                  - !Sub 'arn:aws:glue:us-east-1:${WingSafeAccountId}:table/flightradar_db/*'
+              - Effect: Allow
+                Action:
+                  - lakeformation:GetDataAccess
+                  - lakeformation:GetWorkUnits
+                  - lakeformation:GetWorkUnitResults
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:GetBucketLocation
+                Resource:
+                  - !Sub 'arn:aws:s3:::flightradar-iceberg-data-${Environment}-157809907894'
+                  - !Sub 'arn:aws:s3:::flightradar-iceberg-data-${Environment}-157809907894/*'
+                  - !Sub 'arn:aws:s3:::wingsafe-athena-results-${Environment}-${WingSafeAccountId}'
+                  - !Sub 'arn:aws:s3:::wingsafe-athena-results-${Environment}-${WingSafeAccountId}/*'
+
+  # Redshift Serverless Namespace
+  RedshiftServerlessNamespace:
+    Type: AWS::RedshiftServerless::Namespace
+    DependsOn: RedshiftServerlessRole
+    Properties:
+      NamespaceName: !Sub 'aeroinsight-analytics-${Environment}'
+      AdminUsername: admin
+      ManageAdminPassword: true
+      DbName: analytics
+      DefaultIamRoleArn: !GetAtt RedshiftServerlessRole.Arn
+      IamRoles:
+        - !GetAtt RedshiftServerlessRole.Arn
+
+  # Redshift Serverless Workgroup
+  RedshiftServerlessWorkgroup:
+    Type: AWS::RedshiftServerless::Workgroup
+    DependsOn: 
+      - RedshiftServerlessNamespace
+      - RedshiftSecurityGroup
+      - PrivateSubnet1
+      - PrivateSubnet2
+    Properties:
+      WorkgroupName: !Sub 'aeroinsight-workgroup-${Environment}'
+      NamespaceName: !Ref RedshiftServerlessNamespace
+      BaseCapacity: 8
+      PubliclyAccessible: false
+      SecurityGroupIds:
+        - !Ref RedshiftSecurityGroup
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+
+Outputs:
+  RedshiftServerlessNamespace:
+    Description: Redshift Serverless Namespace
+    Value: !Ref RedshiftServerlessNamespace
+    Export:
+      Name: !Sub '${AWS::StackName}-Namespace'
+
+  RedshiftServerlessWorkgroup:
+    Description: Redshift Serverless Workgroup
+    Value: !Ref RedshiftServerlessWorkgroup
+    Export:
+      Name: !Sub '${AWS::StackName}-Workgroup'
+
+  RedshiftServerlessRoleArn:
+    Description: Redshift Serverless IAM Role ARN
+    Value: !GetAtt RedshiftServerlessRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-RoleArn'

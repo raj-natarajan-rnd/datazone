@@ -1,0 +1,70 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AeroInsight QuickSight setup for WingSafe centralized data access'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+  WingSafeAccountId:
+    Type: String
+    Default: "184838390535"
+    Description: WingSafe account ID
+
+Resources:
+  # QuickSight service role for cross-account access
+  QuickSightServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'AeroInsight-QuickSight-Service-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: quicksight.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: QuickSightWingSafeAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sts:AssumeRole
+                Resource: 
+                  - !Sub 'arn:aws:iam::${WingSafeAccountId}:role/WingSafe-DataScientist-CrossAccount-${Environment}'
+                  - !Sub 'arn:aws:iam::${WingSafeAccountId}:role/WingSafe-FlightRadarViewer-CrossAccount-${Environment}'
+              - Effect: Allow
+                Action:
+                  - athena:*
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - glue:GetDatabase
+                  - glue:GetDatabases
+                  - glue:GetTable
+                  - glue:GetTables
+                  - glue:GetPartition
+                  - glue:GetPartitions
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:GetBucketLocation
+                Resource:
+                  - !Sub 'arn:aws:s3:::aeroinsight-athena-results-${Environment}-${AWS::AccountId}'
+                  - !Sub 'arn:aws:s3:::aeroinsight-athena-results-${Environment}-${AWS::AccountId}/*'
+                  - !Sub 'arn:aws:s3:::wingsafe-athena-results-${Environment}-${WingSafeAccountId}'
+                  - !Sub 'arn:aws:s3:::wingsafe-athena-results-${Environment}-${WingSafeAccountId}/*'
+
+
+
+Outputs:
+  QuickSightServiceRoleArn:
+    Description: ARN of QuickSight service role
+    Value: !GetAtt QuickSightServiceRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-QuickSightServiceRoleArn'
+

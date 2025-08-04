@@ -1,0 +1,278 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'SSO Permission Sets for DataLounge application-specific access with column restrictions'
+
+Parameters:
+  SSOInstanceId:
+    Type: String
+    Description: SSO Instance ID
+    Default: "ssoins-7223459730eac9ac"
+  AeroInsightAccountId:
+    Type: String
+    Default: "707843606641"
+    Description: AeroInsight account ID (for account assignment)
+
+Resources:
+  # AeroNav Permission Set - Navigation data with restrictions
+  AeroInsightAeroNavPermissionSet:
+    Type: AWS::SSO::PermissionSet
+    Properties:
+      InstanceArn: !Sub 'arn:aws:sso:::instance/${SSOInstanceId}'
+      Name: 'AeroInsight-AeroNav-Viewer'
+      Description: 'AeroNav navigation data access with frequency and fuel restrictions'
+      SessionDuration: 'PT4H'
+      InlinePolicy: |
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "athena:*"
+              ],
+              "Resource": "*"
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "s3:ListAllMyBuckets"
+              ],
+              "Resource": "*"
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "glue:GetCatalogs",
+                "glue:GetDatabase",
+                "glue:GetDatabases",
+                "glue:GetTable",
+                "glue:GetTables",
+                "glue:GetPartition",
+                "glue:GetPartitions"
+              ],
+              "Resource": "*"
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "sts:AssumeRole"
+              ],
+              "Resource": "arn:aws:iam::184838390535:role/WingSafe-AeroNav-CrossAccount-dev"
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "s3:GetObject",
+                "s3:ListBucket",
+                "s3:PutObject",
+                "s3:GetBucketLocation"
+              ],
+              "Resource": [
+                "arn:aws:s3:::wingsafe-athena-results-dev-184838390535",
+                "arn:aws:s3:::wingsafe-athena-results-dev-184838390535/*",
+                "arn:aws:s3:::aeroinsight-athena-results-dev-707843606641",
+                "arn:aws:s3:::aeroinsight-athena-results-dev-707843606641/*"
+              ]
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "s3:GetBucketVersioning",
+                "s3:GetBucketLocation"
+              ],
+              "Resource": [
+                "arn:aws:s3:::aeroinsight-athena-results-dev-707843606641"
+              ]
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "athena:GetDataCatalog",
+                "athena:ListDataCatalogs"
+              ],
+              "Resource": [
+                "arn:aws:athena:us-east-1:707843606641:datacatalog/wingsafe_catalog"
+              ]
+            }
+          ]
+        }
+
+  # AeroWeather Permission Set - Weather data with restrictions
+  AeroInsightAeroWeatherPermissionSet:
+    Type: AWS::SSO::PermissionSet
+    Properties:
+      InstanceArn: !Sub 'arn:aws:sso:::instance/${SSOInstanceId}'
+      Name: 'AeroInsight-AeroWeather-Viewer'
+      Description: 'AeroWeather data access with detailed measurement restrictions'
+      SessionDuration: 'PT4H'
+      InlinePolicy: |
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "athena:*"
+              ],
+              "Resource": "*"
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "s3:ListAllMyBuckets"
+              ],
+              "Resource": "*"
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "glue:GetCatalogs",
+                "glue:GetDatabase",
+                "glue:GetDatabases",
+                "glue:GetTable",
+                "glue:GetTables",
+                "glue:GetPartition",
+                "glue:GetPartitions"
+              ],
+              "Resource": "*"
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "sts:AssumeRole"
+              ],
+              "Resource": "arn:aws:iam::184838390535:role/WingSafe-AeroWeather-CrossAccount-dev"
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "s3:GetObject",
+                "s3:ListBucket",
+                "s3:PutObject",
+                "s3:GetBucketLocation"
+              ],
+              "Resource": [
+                "arn:aws:s3:::wingsafe-athena-results-dev-184838390535",
+                "arn:aws:s3:::wingsafe-athena-results-dev-184838390535/*",
+                "arn:aws:s3:::aeroinsight-athena-results-dev-707843606641",
+                "arn:aws:s3:::aeroinsight-athena-results-dev-707843606641/*"
+              ]
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "s3:GetBucketVersioning",
+                "s3:GetBucketLocation"
+              ],
+              "Resource": [
+                "arn:aws:s3:::aeroinsight-athena-results-dev-707843606641"
+              ]
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "athena:GetDataCatalog",
+                "athena:ListDataCatalogs"
+              ],
+              "Resource": [
+                "arn:aws:athena:us-east-1:707843606641:datacatalog/wingsafe_catalog"
+              ]
+            }
+          ]
+        }
+
+  # AeroTraffic Permission Set - Traffic data with restrictions
+  AeroInsightAeroTrafficPermissionSet:
+    Type: AWS::SSO::PermissionSet
+    Properties:
+      InstanceArn: !Sub 'arn:aws:sso:::instance/${SSOInstanceId}'
+      Name: 'AeroInsight-AeroTraffic-Viewer'
+      Description: 'AeroTraffic data access with sensitive ATC information restrictions'
+      SessionDuration: 'PT4H'
+      InlinePolicy: |
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "athena:*"
+              ],
+              "Resource": "*"
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "s3:ListAllMyBuckets"
+              ],
+              "Resource": "*"
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "glue:GetCatalogs",
+                "glue:GetDatabase",
+                "glue:GetDatabases",
+                "glue:GetTable",
+                "glue:GetTables",
+                "glue:GetPartition",
+                "glue:GetPartitions"
+              ],
+              "Resource": "*"
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "sts:AssumeRole"
+              ],
+              "Resource": "arn:aws:iam::184838390535:role/WingSafe-AeroTraffic-CrossAccount-dev"
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "s3:GetObject",
+                "s3:ListBucket",
+                "s3:PutObject",
+                "s3:GetBucketLocation"
+              ],
+              "Resource": [
+                "arn:aws:s3:::wingsafe-athena-results-dev-184838390535",
+                "arn:aws:s3:::wingsafe-athena-results-dev-184838390535/*",
+                "arn:aws:s3:::aeroinsight-athena-results-dev-707843606641",
+                "arn:aws:s3:::aeroinsight-athena-results-dev-707843606641/*"
+              ]
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "s3:GetBucketVersioning",
+                "s3:GetBucketLocation"
+              ],
+              "Resource": [
+                "arn:aws:s3:::aeroinsight-athena-results-dev-707843606641"
+              ]
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "athena:GetDataCatalog",
+                "athena:ListDataCatalogs"
+              ],
+              "Resource": [
+                "arn:aws:athena:us-east-1:707843606641:datacatalog/wingsafe_catalog"
+              ]
+            }
+          ]
+        }
+
+Outputs:
+  AeroNavPermissionSetArn:
+    Description: ARN of AeroNav Permission Set
+    Value: !Ref AeroInsightAeroNavPermissionSet
+    
+  AeroWeatherPermissionSetArn:
+    Description: ARN of AeroWeather Permission Set
+    Value: !Ref AeroInsightAeroWeatherPermissionSet
+
+  AeroTrafficPermissionSetArn:
+    Description: ARN of AeroTraffic Permission Set
+    Value: !Ref AeroInsightAeroTrafficPermissionSet

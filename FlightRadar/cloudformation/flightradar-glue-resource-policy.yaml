@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'FlightRadar Glue resource policy to access WingSafe centralized catalog'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+  WingSafeAccountId:
+    Type: String
+    Default: "184838390535"
+    Description: WingSafe account ID
+
+Resources:
+  # Cross-account role for accessing WingSafe Glue catalog
+  FlightRadarGlueCrossAccountRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'FlightRadar-GlueCatalog-Access-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: athena.amazonaws.com
+            Action: sts:AssumeRole
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: WingSafeCatalogAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - glue:GetDatabase
+                  - glue:GetDatabases
+                  - glue:GetTable
+                  - glue:GetTables
+                  - glue:CreateTable
+                  - glue:UpdateTable
+                  - glue:GetPartition
+                  - glue:GetPartitions
+                Resource: 
+                  - !Sub 'arn:aws:glue:*:${WingSafeAccountId}:catalog'
+                  - !Sub 'arn:aws:glue:*:${WingSafeAccountId}:database/flightradar_db'
+                  - !Sub 'arn:aws:glue:*:${WingSafeAccountId}:table/flightradar_db/*'
+              - Effect: Allow
+                Action:
+                  - athena:*
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:GetBucketLocation
+                Resource:
+                  - !Sub 'arn:aws:s3:::flightradar-iceberg-data-${Environment}-${AWS::AccountId}'
+                  - !Sub 'arn:aws:s3:::flightradar-iceberg-data-${Environment}-${AWS::AccountId}/*'
+                  - !Sub 'arn:aws:s3:::flightradar-athena-results-${Environment}-${AWS::AccountId}'
+                  - !Sub 'arn:aws:s3:::flightradar-athena-results-${Environment}-${AWS::AccountId}/*'
+
+Outputs:
+  FlightRadarGlueCrossAccountRoleArn:
+    Description: ARN of FlightRadar role for accessing WingSafe Glue catalog
+    Value: !GetAtt FlightRadarGlueCrossAccountRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-GlueCrossAccountRoleArn'

@@ -1,0 +1,30 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AeroInsight federated data source to access WingSafe centralized catalog'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+  WingSafeAccountId:
+    Type: String
+    Default: "184838390535"
+    Description: WingSafe account ID
+
+Resources:
+  # Athena Data Catalog for cross-account access
+  WingSafeFederatedDataCatalog:
+    Type: AWS::Athena::DataCatalog
+    Properties:
+      Name: wingsafe_catalog
+      Description: 'Federated data catalog pointing to WingSafe centralized catalog'
+      Type: GLUE
+      Parameters:
+        catalog-id: !Ref WingSafeAccountId
+
+Outputs:
+  WingSafeFederatedDataCatalog:
+    Description: Federated data catalog for WingSafe access
+    Value: !Ref WingSafeFederatedDataCatalog
+    Export:
+      Name: !Sub '${AWS::StackName}-FederatedCatalog'

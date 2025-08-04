@@ -1,0 +1,186 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'DataLounge infrastructure for 3 Aero applications with Iceberg data storage'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+  WingSafeAccountId:
+    Type: String
+    Default: "184838390535"
+    Description: WingSafe account ID for cross-account access
+
+Resources:
+  # S3 Bucket for AeroNav Iceberg data storage
+  AeroNavDataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'aeronav-iceberg-data-${Environment}-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+
+  # S3 Bucket for AeroWeather Iceberg data storage
+  AeroWeatherDataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'aeroweather-iceberg-data-${Environment}-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+
+  # S3 Bucket for AeroTraffic Iceberg data storage
+  AeroTrafficDataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'aerotraffic-iceberg-data-${Environment}-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+
+  # S3 Bucket for local Athena query results (if needed for data ingestion)
+  DataLoungeAthenaResultsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'datalounge-athena-results-${Environment}-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  # Cross-account bucket policies for WingSafe access
+  AeroNavDataBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    DependsOn: AeroNavDataBucket
+    Properties:
+      Bucket: !Ref AeroNavDataBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowWingSafeAccess
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${WingSafeAccountId}:root'
+            Action:
+              - s3:GetObject
+              - s3:ListBucket
+              - s3:PutObject
+              - s3:DeleteObject
+            Resource:
+              - !GetAtt AeroNavDataBucket.Arn
+              - !Sub "${AeroNavDataBucket.Arn}/*"
+
+  AeroWeatherDataBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    DependsOn: AeroWeatherDataBucket
+    Properties:
+      Bucket: !Ref AeroWeatherDataBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowWingSafeAccess
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${WingSafeAccountId}:root'
+            Action:
+              - s3:GetObject
+              - s3:ListBucket
+              - s3:PutObject
+              - s3:DeleteObject
+            Resource:
+              - !GetAtt AeroWeatherDataBucket.Arn
+              - !Sub "${AeroWeatherDataBucket.Arn}/*"
+
+  AeroTrafficDataBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    DependsOn: AeroTrafficDataBucket
+    Properties:
+      Bucket: !Ref AeroTrafficDataBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowWingSafeAccess
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${WingSafeAccountId}:root'
+            Action:
+              - s3:GetObject
+              - s3:ListBucket
+              - s3:PutObject
+              - s3:DeleteObject
+            Resource:
+              - !GetAtt AeroTrafficDataBucket.Arn
+              - !Sub "${AeroTrafficDataBucket.Arn}/*"
+
+  # Local Athena Workgroup for data ingestion
+  DataLoungeAthenaWorkgroup:
+    Type: AWS::Athena::WorkGroup
+    DependsOn: DataLoungeAthenaResultsBucket
+    Properties:
+      Name: !Sub 'DataLounge-Operations-${Environment}'
+      Description: 'Athena workgroup for DataLounge multi-application operations'
+      WorkGroupConfiguration:
+        ResultConfiguration:
+          OutputLocation: !Sub 's3://${DataLoungeAthenaResultsBucket}/query-results/'
+        EnforceWorkGroupConfiguration: true
+
+Outputs:
+  AeroNavDataBucket:
+    Description: S3 bucket for AeroNav Iceberg data storage
+    Value: !Ref AeroNavDataBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-AeroNavDataBucket'
+
+  AeroWeatherDataBucket:
+    Description: S3 bucket for AeroWeather Iceberg data storage
+    Value: !Ref AeroWeatherDataBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-AeroWeatherDataBucket'
+
+  AeroTrafficDataBucket:
+    Description: S3 bucket for AeroTraffic Iceberg data storage
+    Value: !Ref AeroTrafficDataBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-AeroTrafficDataBucket'
+
+  DataLoungeAthenaResultsBucket:
+    Description: S3 bucket for local Athena query results
+    Value: !Ref DataLoungeAthenaResultsBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-AthenaResultsBucket'
+
+  DataLoungeAthenaWorkgroup:
+    Description: Local Athena workgroup for data operations
+    Value: !Ref DataLoungeAthenaWorkgroup
+    Export:
+      Name: !Sub '${AWS::StackName}-AthenaWorkgroup'

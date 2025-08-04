@@ -1,0 +1,78 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'FlightRadar infrastructure for Iceberg data storage with WingSafe access'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+  WingSafeAccountId:
+    Type: String
+    Default: "184838390535"
+    Description: WingSafe account ID for cross-account access
+
+Resources:
+  # S3 Bucket for Iceberg data storage
+  FlightRadarDataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'flightradar-iceberg-data-${Environment}-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+
+  # S3 Bucket for local Athena query results (if needed for data ingestion)
+  FlightRadarAthenaResultsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'flightradar-athena-results-${Environment}-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+
+
+  # Local Athena Workgroup for data ingestion
+  FlightRadarAthenaWorkgroup:
+    Type: AWS::Athena::WorkGroup
+    DependsOn: FlightRadarAthenaResultsBucket
+    Properties:
+      Name: !Sub 'FlightRadar-DataCapture-${Environment}'
+      Description: 'Athena workgroup for FlightRadar data operations'
+      WorkGroupConfiguration:
+        ResultConfiguration:
+          OutputLocation: !Sub 's3://${FlightRadarAthenaResultsBucket}/query-results/'
+        EnforceWorkGroupConfiguration: true
+
+Outputs:
+  FlightRadarDataBucket:
+    Description: S3 bucket for Iceberg data storage
+    Value: !Ref FlightRadarDataBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-DataBucket'
+
+  FlightRadarAthenaResultsBucket:
+    Description: S3 bucket for local Athena query results
+    Value: !Ref FlightRadarAthenaResultsBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-AthenaResultsBucket'
+
+  FlightRadarAthenaWorkgroup:
+    Description: Local Athena workgroup for data operations
+    Value: !Ref FlightRadarAthenaWorkgroup
+    Export:
+      Name: !Sub '${AWS::StackName}-AthenaWorkgroup'

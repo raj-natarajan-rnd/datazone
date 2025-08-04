@@ -1,0 +1,245 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'WingSafe DataLounge applications infrastructure with Glue catalog and cross-account roles'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+  DataLoungeAccountId:
+    Type: String
+    Default: "073118366505"
+  AeroInsightAccountId:
+    Type: String
+    Default: "707843606641"
+
+Resources:
+  # Glue Databases for DataLounge applications
+  AeroNavDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Name: aeronav_db
+        Description: 'AeroNav navigation and route data'
+
+  AeroWeatherDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Name: aeroweather_db
+        Description: 'AeroWeather observations and forecasts data'
+
+  AeroTrafficDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Name: aerotraffic_db
+        Description: 'AeroTraffic control and runway operations data'
+
+  # AeroNav cross-account role - Restricted access
+  WingSafeAeroNavRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'WingSafe-AeroNav-CrossAccount-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AeroInsightAccountId}:root'
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: LakeFormationAeroNavPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lakeformation:GetDataAccess
+                  - lakeformation:GetWorkUnits
+                  - lakeformation:GetWorkUnitResults
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - glue:GetDatabase
+                  - glue:GetDatabases
+                  - glue:GetTable
+                  - glue:GetTables
+                  - glue:GetPartition
+                  - glue:GetPartitions
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - athena:*
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - s3:ListAllMyBuckets
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:PutObject
+                  - s3:GetBucketLocation
+                Resource:
+                  - !Sub 'arn:aws:s3:::wingsafe-athena-results-${Environment}-${AWS::AccountId}'
+                  - !Sub 'arn:aws:s3:::wingsafe-athena-results-${Environment}-${AWS::AccountId}/*'
+                  - !Sub 'arn:aws:s3:::aeronav-iceberg-data-${Environment}-${DataLoungeAccountId}'
+                  - !Sub 'arn:aws:s3:::aeronav-iceberg-data-${Environment}-${DataLoungeAccountId}/*'
+                  - !Sub 'arn:aws:s3:::aeroweather-iceberg-data-${Environment}-${DataLoungeAccountId}'
+                  - !Sub 'arn:aws:s3:::aeroweather-iceberg-data-${Environment}-${DataLoungeAccountId}/*'
+                  - !Sub 'arn:aws:s3:::aerotraffic-iceberg-data-${Environment}-${DataLoungeAccountId}'
+                  - !Sub 'arn:aws:s3:::aerotraffic-iceberg-data-${Environment}-${DataLoungeAccountId}/*'
+
+  # AeroWeather cross-account role - Restricted access
+  WingSafeAeroWeatherRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'WingSafe-AeroWeather-CrossAccount-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AeroInsightAccountId}:root'
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: LakeFormationAeroWeatherPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lakeformation:GetDataAccess
+                  - lakeformation:GetWorkUnits
+                  - lakeformation:GetWorkUnitResults
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - glue:GetDatabase
+                  - glue:GetDatabases
+                  - glue:GetTable
+                  - glue:GetTables
+                  - glue:GetPartition
+                  - glue:GetPartitions
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - athena:*
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - s3:ListAllMyBuckets
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:PutObject
+                  - s3:GetBucketLocation
+                Resource:
+                  - !Sub 'arn:aws:s3:::wingsafe-athena-results-${Environment}-${AWS::AccountId}'
+                  - !Sub 'arn:aws:s3:::wingsafe-athena-results-${Environment}-${AWS::AccountId}/*'
+                  - !Sub 'arn:aws:s3:::aeronav-iceberg-data-${Environment}-${DataLoungeAccountId}'
+                  - !Sub 'arn:aws:s3:::aeronav-iceberg-data-${Environment}-${DataLoungeAccountId}/*'
+                  - !Sub 'arn:aws:s3:::aeroweather-iceberg-data-${Environment}-${DataLoungeAccountId}'
+                  - !Sub 'arn:aws:s3:::aeroweather-iceberg-data-${Environment}-${DataLoungeAccountId}/*'
+                  - !Sub 'arn:aws:s3:::aerotraffic-iceberg-data-${Environment}-${DataLoungeAccountId}'
+                  - !Sub 'arn:aws:s3:::aerotraffic-iceberg-data-${Environment}-${DataLoungeAccountId}/*'
+
+  # AeroTraffic cross-account role - Restricted access
+  WingSafeAeroTrafficRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'WingSafe-AeroTraffic-CrossAccount-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AeroInsightAccountId}:root'
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: LakeFormationAeroTrafficPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lakeformation:GetDataAccess
+                  - lakeformation:GetWorkUnits
+                  - lakeformation:GetWorkUnitResults
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - glue:GetDatabase
+                  - glue:GetDatabases
+                  - glue:GetTable
+                  - glue:GetTables
+                  - glue:GetPartition
+                  - glue:GetPartitions
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - athena:*
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - s3:ListAllMyBuckets
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:PutObject
+                  - s3:GetBucketLocation
+                Resource:
+                  - !Sub 'arn:aws:s3:::wingsafe-athena-results-${Environment}-${AWS::AccountId}'
+                  - !Sub 'arn:aws:s3:::wingsafe-athena-results-${Environment}-${AWS::AccountId}/*'
+                  - !Sub 'arn:aws:s3:::aeronav-iceberg-data-${Environment}-${DataLoungeAccountId}'
+                  - !Sub 'arn:aws:s3:::aeronav-iceberg-data-${Environment}-${DataLoungeAccountId}/*'
+                  - !Sub 'arn:aws:s3:::aeroweather-iceberg-data-${Environment}-${DataLoungeAccountId}'
+                  - !Sub 'arn:aws:s3:::aeroweather-iceberg-data-${Environment}-${DataLoungeAccountId}/*'
+                  - !Sub 'arn:aws:s3:::aerotraffic-iceberg-data-${Environment}-${DataLoungeAccountId}'
+                  - !Sub 'arn:aws:s3:::aerotraffic-iceberg-data-${Environment}-${DataLoungeAccountId}/*'
+
+Outputs:
+  AeroNavDatabase:
+    Description: Glue database for AeroNav data
+    Value: !Ref AeroNavDatabase
+    Export:
+      Name: !Sub '${AWS::StackName}-AeroNavDatabase'
+
+  AeroWeatherDatabase:
+    Description: Glue database for AeroWeather data
+    Value: !Ref AeroWeatherDatabase
+    Export:
+      Name: !Sub '${AWS::StackName}-AeroWeatherDatabase'
+
+  AeroTrafficDatabase:
+    Description: Glue database for AeroTraffic data
+    Value: !Ref AeroTrafficDatabase
+    Export:
+      Name: !Sub '${AWS::StackName}-AeroTrafficDatabase'
+
+  AeroNavRoleArn:
+    Description: ARN of AeroNav cross-account role
+    Value: !GetAtt WingSafeAeroNavRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-AeroNavRoleArn'
+
+  AeroWeatherRoleArn:
+    Description: ARN of AeroWeather cross-account role
+    Value: !GetAtt WingSafeAeroWeatherRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-AeroWeatherRoleArn'
+
+  AeroTrafficRoleArn:
+    Description: ARN of AeroTraffic cross-account role
+    Value: !GetAtt WingSafeAeroTrafficRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-AeroTrafficRoleArn'

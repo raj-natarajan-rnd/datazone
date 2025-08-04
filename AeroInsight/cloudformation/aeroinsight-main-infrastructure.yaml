@@ -1,0 +1,64 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AeroInsight infrastructure for SSO users to access WingSafe centralized catalog'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+  WingSafeAccountId:
+    Type: String
+    Default: "184838390535"
+    Description: WingSafe account ID (centralized Glue/LakeFormation)
+
+Resources:
+  # S3 Bucket for local Athena query results (optional - users can use WingSafe bucket)
+  AeroInsightAthenaResultsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'aeroinsight-athena-results-${Environment}-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  # Local Athena Workgroup (optional - users can use WingSafe workgroup)
+  AeroInsightAthenaWorkgroup:
+    Type: AWS::Athena::WorkGroup
+    DependsOn: AeroInsightAthenaResultsBucket
+    Properties:
+      Name: !Sub 'AeroInsight-Local-${Environment}'
+      Description: 'Local Athena workgroup for AeroInsight account'
+      WorkGroupConfiguration:
+        ResultConfiguration:
+          OutputLocation: !Sub 's3://${AeroInsightAthenaResultsBucket}/query-results/'
+        EnforceWorkGroupConfiguration: false
+
+  # Cross-account data catalog for WingSafe
+  WingSafeDataCatalog:
+    Type: AWS::Glue::DataCatalogEncryptionSettings
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DataCatalogEncryptionSettings:
+        EncryptionAtRest:
+          CatalogEncryptionMode: DISABLED
+        ConnectionPasswordEncryption:
+          ReturnConnectionPasswordEncrypted: false
+
+Outputs:
+  AeroInsightAthenaResultsBucket:
+    Description: S3 bucket for local Athena query results
+    Value: !Ref AeroInsightAthenaResultsBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-AthenaResultsBucket'
+
+  AeroInsightAthenaWorkgroup:
+    Description: Local Athena workgroup
+    Value: !Ref AeroInsightAthenaWorkgroup
+    Export:
+      Name: !Sub '${AWS::StackName}-AthenaWorkgroup'

@@ -1,0 +1,296 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'WingSafe centralized Glue and LakeFormation infrastructure with proper cross-account access'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+  FlightRadarAccountId:
+    Type: String
+    Default: "157809907894"
+  AeroInsightAccountId:
+    Type: String
+    Default: "707843606641"
+
+Resources:
+  # S3 Bucket for Athena query results
+  WingSafeAthenaResultsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'wingsafe-athena-results-${Environment}-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  # Cross-account bucket policy for AeroInsight SSO users
+  WingSafeAthenaResultsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    DependsOn: WingSafeAthenaResultsBucket
+    Properties:
+      Bucket: !Ref WingSafeAthenaResultsBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowAeroInsightSSO
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AeroInsightAccountId}:root'
+            Action:
+              - s3:GetObject
+              - s3:ListBucket
+              - s3:PutObject
+              - s3:GetBucketLocation
+            Resource:
+              - !GetAtt WingSafeAthenaResultsBucket.Arn
+              - !Sub "${WingSafeAthenaResultsBucket.Arn}/*"
+
+  # Athena Workgroup
+  WingSafeAthenaWorkgroup:
+    Type: AWS::Athena::WorkGroup
+    DependsOn: WingSafeAthenaResultsBucket
+    Properties:
+      Name: !Sub 'WingSafe-DataAnalysis-${Environment}'
+      Description: 'Centralized Athena workgroup for data analysis'
+      WorkGroupConfiguration:
+        ResultConfiguration:
+          OutputLocation: !Sub 's3://${WingSafeAthenaResultsBucket}/query-results/'
+        EnforceWorkGroupConfiguration: true
+
+  # Glue Database for radar data
+  FlightRadarDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Name: flightradar_db
+        Description: 'Centralized flight radar data database'
+
+  # Glue Table for radar detections
+  RadarDetectionsTable:
+    Type: AWS::Glue::Table
+    DependsOn: FlightRadarDatabase
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseName: !Ref FlightRadarDatabase
+      TableInput:
+        Name: radar_detections
+        Description: 'Flight radar detections data'
+        TableType: EXTERNAL_TABLE
+        Parameters:
+          classification: iceberg
+          table_type: ICEBERG
+        StorageDescriptor:
+          Columns:
+            - Name: timestamp
+              Type: timestamp
+            - Name: flight_id
+              Type: string
+            - Name: aircraft_type
+              Type: string
+            - Name: altitude_feet
+              Type: int
+            - Name: latitude
+              Type: double
+            - Name: longitude
+              Type: double
+            - Name: vertical_speed
+              Type: int
+            - Name: squawk_code
+              Type: string
+            - Name: ground_speed
+              Type: int
+            - Name: track
+              Type: int
+            - Name: callsign
+              Type: string
+            - Name: speed_knots
+              Type: double
+            - Name: heading_degrees
+              Type: double
+          Location: !Sub 's3://flightradar-iceberg-data-${Environment}-${FlightRadarAccountId}/radar_detections/'
+          InputFormat: org.apache.iceberg.mr.hive.HiveIcebergInputFormat
+          OutputFormat: org.apache.iceberg.mr.hive.HiveIcebergOutputFormat
+          SerdeInfo:
+            SerializationLibrary: org.apache.iceberg.mr.hive.HiveIcebergSerDe
+
+  # DataScientist cross-account role - Full access
+  WingSafeDataScientistRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'WingSafe-DataScientist-CrossAccount-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AeroInsightAccountId}:root'
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: LakeFormationDataScientistPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lakeformation:GetDataAccess
+                  - lakeformation:GetWorkUnits
+                  - lakeformation:GetWorkUnitResults
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - glue:GetDatabase
+                  - glue:GetDatabases
+                  - glue:GetTable
+                  - glue:GetTables
+                  - glue:GetPartition
+                  - glue:GetPartitions
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - athena:*
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - s3:ListAllMyBuckets
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - quicksight:DescribeAccountSubscription
+                  - quicksight:CreateAnalysis
+                  - quicksight:CreateDashboard
+                  - quicksight:CreateDataSet
+                  - quicksight:DescribeAnalysis
+                  - quicksight:DescribeDashboard
+                  - quicksight:DescribeDataSet
+                  - quicksight:DescribeDataSource
+                  - quicksight:ListAnalyses
+                  - quicksight:ListDashboards
+                  - quicksight:ListDataSets
+                  - quicksight:ListDataSources
+                  - quicksight:PassDataSet
+                  - quicksight:PassDataSource
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:PutObject
+                  - s3:GetBucketLocation
+                Resource:
+                  - !GetAtt WingSafeAthenaResultsBucket.Arn
+                  - !Sub "${WingSafeAthenaResultsBucket.Arn}/*"
+                  - !Sub 'arn:aws:s3:::flightradar-iceberg-data-${Environment}-${FlightRadarAccountId}'
+                  - !Sub 'arn:aws:s3:::flightradar-iceberg-data-${Environment}-${FlightRadarAccountId}/*'
+                  - 'arn:aws:s3:::aeronav-iceberg-data-dev-073118366505'
+                  - 'arn:aws:s3:::aeronav-iceberg-data-dev-073118366505/*'
+                  - 'arn:aws:s3:::aeroweather-iceberg-data-dev-073118366505'
+                  - 'arn:aws:s3:::aeroweather-iceberg-data-dev-073118366505/*'
+                  - 'arn:aws:s3:::aerotraffic-iceberg-data-dev-073118366505'
+                  - 'arn:aws:s3:::aerotraffic-iceberg-data-dev-073118366505/*'
+
+  # FlightRadar Viewer cross-account role - Restricted access
+  WingSafeFlightRadarViewerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'WingSafe-FlightRadarViewer-CrossAccount-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AeroInsightAccountId}:root'
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: LakeFormationFlightRadarViewerPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lakeformation:GetDataAccess
+                  - lakeformation:GetWorkUnits
+                  - lakeformation:GetWorkUnitResults
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - glue:GetDatabase
+                  - glue:GetDatabases
+                  - glue:GetTable
+                  - glue:GetTables
+                  - glue:GetPartition
+                  - glue:GetPartitions
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - athena:*
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - s3:ListAllMyBuckets
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - quicksight:DescribeAccountSubscription
+                  - quicksight:CreateAnalysis
+                  - quicksight:CreateDashboard
+                  - quicksight:CreateDataSet
+                  - quicksight:DescribeAnalysis
+                  - quicksight:DescribeDashboard
+                  - quicksight:DescribeDataSet
+                  - quicksight:DescribeDataSource
+                  - quicksight:ListAnalyses
+                  - quicksight:ListDashboards
+                  - quicksight:ListDataSets
+                  - quicksight:ListDataSources
+                  - quicksight:PassDataSet
+                  - quicksight:PassDataSource
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:PutObject
+                  - s3:GetBucketLocation
+                Resource:
+                  - !GetAtt WingSafeAthenaResultsBucket.Arn
+                  - !Sub "${WingSafeAthenaResultsBucket.Arn}/*"
+                  - !Sub 'arn:aws:s3:::flightradar-iceberg-data-${Environment}-${FlightRadarAccountId}'
+                  - !Sub 'arn:aws:s3:::flightradar-iceberg-data-${Environment}-${FlightRadarAccountId}/*'
+
+Outputs:
+  WingSafeAthenaResultsBucket:
+    Description: S3 bucket for Athena query results
+    Value: !Ref WingSafeAthenaResultsBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-AthenaResultsBucket'
+
+  WingSafeAthenaWorkgroup:
+    Description: Athena workgroup for centralized data analysis
+    Value: !Ref WingSafeAthenaWorkgroup
+    Export:
+      Name: !Sub '${AWS::StackName}-AthenaWorkgroup'
+
+  DataScientistRoleArn:
+    Description: ARN of DataScientist cross-account role
+    Value: !GetAtt WingSafeDataScientistRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-DataScientistRoleArn'
+
+  FlightRadarViewerRoleArn:
+    Description: ARN of FlightRadar Viewer cross-account role
+    Value: !GetAtt WingSafeFlightRadarViewerRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-FlightRadarViewerRoleArn'
+
+  FlightRadarDatabase:
+    Description: Glue database for flight radar data
+    Value: !Ref FlightRadarDatabase
+    Export:
+      Name: !Sub '${AWS::StackName}-FlightRadarDatabase'

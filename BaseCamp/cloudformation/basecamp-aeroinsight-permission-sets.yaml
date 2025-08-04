@@ -1,0 +1,265 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'SSO Permission Sets for direct WingSafe access - seamless Athena console experience'
+
+Parameters:
+  SSOInstanceId:
+    Type: String
+    Description: SSO Instance ID
+  AeroInsightAccountId:
+    Type: String
+    Default: "707843606641"
+    Description: AeroInsight account ID (for account assignment)
+
+Resources:
+  # DataScientist Permission Set - Direct WingSafe access
+  AeroInsightDataScientistPermissionSet:
+    Type: AWS::SSO::PermissionSet
+    Properties:
+      InstanceArn: !Sub 'arn:aws:sso:::instance/${SSOInstanceId}'
+      Name: 'AeroInsight-DataScientist-Admin'
+      Description: 'Direct WingSafe access for data scientists with full column access'
+      SessionDuration: 'PT8H'
+      InlinePolicy: |
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "athena:*"
+              ],
+              "Resource": "*"
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "s3:ListAllMyBuckets"
+              ],
+              "Resource": "*"
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "glue:GetCatalogs",
+                "glue:GetDatabase",
+                "glue:GetDatabases",
+                "glue:GetTable",
+                "glue:GetTables",
+                "glue:GetPartition",
+                "glue:GetPartitions"
+              ],
+              "Resource": "*"
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "quicksight:CreateAnalysis",
+                "quicksight:CreateDashboard",
+                "quicksight:CreateDataSet",
+                "quicksight:DescribeAnalysis",
+                "quicksight:DescribeDashboard",
+                "quicksight:DescribeDataSet",
+                "quicksight:DescribeDataSource",
+                "quicksight:ListAnalyses",
+                "quicksight:ListDashboards",
+                "quicksight:ListDataSets",
+                "quicksight:ListDataSources",
+                "quicksight:PassDataSet",
+                "quicksight:PassDataSource"
+              ],
+              "Resource": "*"
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "sts:AssumeRole"
+              ],
+              "Resource": [
+                "arn:aws:iam::184838390535:role/WingSafe-DataScientist-CrossAccount-dev",
+                "arn:aws:iam::184838390535:role/WingSafe-FlightRadarViewer-CrossAccount-dev",
+                "arn:aws:iam::184838390535:role/WingSafe-AeroNav-CrossAccount-dev",
+                "arn:aws:iam::184838390535:role/WingSafe-AeroWeather-CrossAccount-dev",
+                "arn:aws:iam::184838390535:role/WingSafe-AeroTraffic-CrossAccount-dev"
+              ]
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "s3:GetObject",
+                "s3:ListBucket",
+                "s3:PutObject",
+                "s3:GetBucketLocation"
+              ],
+              "Resource": [
+                "arn:aws:s3:::wingsafe-athena-results-dev-184838390535",
+                "arn:aws:s3:::wingsafe-athena-results-dev-184838390535/*",
+                "arn:aws:s3:::aeroinsight-athena-results-dev-707843606641",
+                "arn:aws:s3:::aeroinsight-athena-results-dev-707843606641/*"
+              ]
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "s3:GetBucketVersioning",
+                "s3:GetBucketLocation"
+              ],
+              "Resource": [
+                "arn:aws:s3:::aeroinsight-athena-results-dev-707843606641"
+              ]
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "athena:GetDataCatalog",
+                "athena:ListDataCatalogs"
+              ],
+              "Resource": [
+                "arn:aws:athena:us-east-1:707843606641:datacatalog/wingsafe_catalog"
+              ]
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "redshift-serverless:GetNamespace",
+                "redshift-serverless:GetWorkgroup",
+                "redshift-serverless:GetCredentials",
+                "redshift-serverless:ListNamespaces",
+                "redshift-serverless:ListWorkgroups",
+                "redshift-data:BatchExecuteStatement",
+                "redshift-data:ExecuteStatement",
+                "redshift-data:GetStatementResult",
+                "redshift-data:DescribeStatement",
+                "redshift-data:ListStatements"
+              ],
+              "Resource": "*"
+            }
+          ]
+        }
+
+  # FlightRadar Viewer Permission Set - Direct WingSafe access
+  AeroInsightFlightRadarViewerPermissionSet:
+    Type: AWS::SSO::PermissionSet
+    Properties:
+      InstanceArn: !Sub 'arn:aws:sso:::instance/${SSOInstanceId}'
+      Name: 'AeroInsight-FlightRadar-Viewer'
+      Description: 'Direct WingSafe access for flight radar viewing with column restrictions'
+      SessionDuration: 'PT4H'
+      InlinePolicy: |
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "athena:*"
+              ],
+              "Resource": "*"
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "s3:ListAllMyBuckets"
+              ],
+              "Resource": "*"
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "glue:GetCatalogs",
+                "glue:GetDatabase",
+                "glue:GetDatabases",
+                "glue:GetTable",
+                "glue:GetTables",
+                "glue:GetPartition",
+                "glue:GetPartitions"
+              ],
+              "Resource": "*"
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "quicksight:CreateAnalysis",
+                "quicksight:CreateDashboard",
+                "quicksight:CreateDataSet",
+                "quicksight:DescribeAnalysis",
+                "quicksight:DescribeDashboard",
+                "quicksight:DescribeDataSet",
+                "quicksight:DescribeDataSource",
+                "quicksight:ListAnalyses",
+                "quicksight:ListDashboards",
+                "quicksight:ListDataSets",
+                "quicksight:ListDataSources",
+                "quicksight:PassDataSet",
+                "quicksight:PassDataSource"
+              ],
+              "Resource": "*"
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "sts:AssumeRole"
+              ],
+              "Resource": "arn:aws:iam::184838390535:role/WingSafe-FlightRadarViewer-CrossAccount-dev"
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "s3:GetObject",
+                "s3:ListBucket",
+                "s3:PutObject",
+                "s3:GetBucketLocation"
+              ],
+              "Resource": [
+                "arn:aws:s3:::wingsafe-athena-results-dev-184838390535",
+                "arn:aws:s3:::wingsafe-athena-results-dev-184838390535/*",
+                "arn:aws:s3:::aeroinsight-athena-results-dev-707843606641",
+                "arn:aws:s3:::aeroinsight-athena-results-dev-707843606641/*"
+              ]
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "s3:GetBucketVersioning",
+                "s3:GetBucketLocation"
+              ],
+              "Resource": [
+                "arn:aws:s3:::aeroinsight-athena-results-dev-707843606641"
+              ]
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "athena:GetDataCatalog",
+                "athena:ListDataCatalogs"
+              ],
+              "Resource": [
+                "arn:aws:athena:us-east-1:707843606641:datacatalog/wingsafe_catalog"
+              ]
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "redshift-serverless:GetNamespace",
+                "redshift-serverless:GetWorkgroup",
+                "redshift-serverless:GetCredentials",
+                "redshift-serverless:ListNamespaces",
+                "redshift-serverless:ListWorkgroups",
+                "redshift-data:BatchExecuteStatement",
+                "redshift-data:ExecuteStatement",
+                "redshift-data:GetStatementResult",
+                "redshift-data:DescribeStatement",
+                "redshift-data:ListStatements"
+              ],
+              "Resource": "*"
+            }
+          ]
+        }
+
+Outputs:
+  DataScientistPermissionSetArn:
+    Description: ARN of DataScientist Permission Set
+    Value: !Ref AeroInsightDataScientistPermissionSet
+    
+  FlightRadarViewerPermissionSetArn:
+    Description: ARN of FlightRadar Viewer Permission Set
+    Value: !Ref AeroInsightFlightRadarViewerPermissionSet

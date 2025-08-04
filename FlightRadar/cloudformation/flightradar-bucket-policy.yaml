@@ -1,0 +1,57 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'FlightRadar S3 bucket policy for WingSafe cross-account access - deploy after WingSafe roles are created'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+  FlightRadarAccountId:
+    Type: String
+    Default: "157809907894"
+    Description: FlightRadar account ID
+  WingSafeAccountId:
+    Type: String
+    Default: "184838390535"
+    Description: WingSafe account ID
+
+Resources:
+  # Cross-account bucket policy for WingSafe roles to access FlightRadar data
+  FlightRadarDataBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Sub 'flightradar-iceberg-data-${Environment}-${FlightRadarAccountId}'
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowWingSafeRolesAccess
+            Effect: Allow
+            Principal:
+              AWS:
+                - !Sub 'arn:aws:iam::${WingSafeAccountId}:root'
+                - !Sub 'arn:aws:iam::${WingSafeAccountId}:role/WingSafe-DataScientist-CrossAccount-${Environment}'
+                - !Sub 'arn:aws:iam::${WingSafeAccountId}:role/WingSafe-FlightRadarViewer-CrossAccount-${Environment}'
+            Action:
+              - s3:GetObject
+              - s3:ListBucket
+              - s3:GetBucketLocation
+              - s3:PutObject
+              - s3:DeleteObject
+            Resource:
+              - !Sub 'arn:aws:s3:::flightradar-iceberg-data-${Environment}-${FlightRadarAccountId}'
+              - !Sub 'arn:aws:s3:::flightradar-iceberg-data-${Environment}-${FlightRadarAccountId}/*'
+          - Sid: DenyInsecureConnections
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !Sub 'arn:aws:s3:::flightradar-iceberg-data-${Environment}-${FlightRadarAccountId}'
+              - !Sub 'arn:aws:s3:::flightradar-iceberg-data-${Environment}-${FlightRadarAccountId}/*'
+            Condition:
+              Bool:
+                "aws:SecureTransport": "false"
+
+Outputs:
+  FlightRadarDataBucketPolicy:
+    Description: S3 bucket policy for cross-account access
+    Value: !Ref FlightRadarDataBucketPolicy
