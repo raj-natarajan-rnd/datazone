@@ -1,0 +1,263 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AeroInsight Lambda Data Writer with EventBridge Publisher'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name
+
+Resources:
+  # IAM Role for Lambda
+  DataWriterLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'AeroInsight-DataWriter-Lambda-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DataWriterPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sts:AssumeRole
+                Resource: 'arn:aws:iam::184838390535:role/WingSafe-DataScientist-CrossAccount-dev'
+              - Effect: Allow
+                Action:
+                  - events:PutEvents
+                Resource: 'arn:aws:events:us-east-1:184838390535:event-bus/aero-platform-cross-account-events-dev'
+
+  # Lambda Function for Data Writing
+  DataWriterFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'aero-data-writer-${Environment}'
+      Runtime: python3.9
+      Handler: index.lambda_handler
+      Role: !GetAtt DataWriterLambdaRole.Arn
+      Timeout: 300
+      Environment:
+        Variables:
+          WINGSAFE_ACCOUNT_ID: '184838390535'
+          EVENT_BUS_NAME: 'aero-platform-cross-account-events-dev'
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import os
+          import time
+          from datetime import datetime
+
+          def assume_datascientist_role():
+              """Assume DataScientist role for Athena access"""
+              sts = boto3.client('sts')
+              
+              role_response = sts.assume_role(
+                  RoleArn='arn:aws:iam::184838390535:role/WingSafe-DataScientist-CrossAccount-dev',
+                  RoleSessionName='LambdaDataWriter'
+              )
+              
+              credentials = role_response['Credentials']
+              
+              return boto3.client(
+                  'athena',
+                  aws_access_key_id=credentials['AccessKeyId'],
+                  aws_secret_access_key=credentials['SecretAccessKey'],
+                  aws_session_token=credentials['SessionToken']
+              )
+
+          def execute_athena_query(athena_client, query, description):
+              """Execute Athena query and wait for completion"""
+              try:
+                  print(f"Executing: {description}")
+                  
+                  response = athena_client.start_query_execution(
+                      QueryString=query,
+                      ResultConfiguration={
+                          'OutputLocation': 's3://wingsafe-athena-results-dev-184838390535/poc-results/'
+                      },
+                      WorkGroup='WingSafe-DataAnalysis-dev'
+                  )
+                  
+                  query_execution_id = response['QueryExecutionId']
+                  
+                  # Wait for completion
+                  while True:
+                      response = athena_client.get_query_execution(QueryExecutionId=query_execution_id)
+                      status = response['QueryExecution']['Status']['State']
+                      
+                      if status in ['SUCCEEDED', 'FAILED', 'CANCELLED']:
+                          break
+                      
+                      time.sleep(2)
+                  
+                  if status == 'SUCCEEDED':
+                      return {'success': True, 'queryExecutionId': query_execution_id}
+                  else:
+                      error_msg = response['QueryExecution']['Status'].get('StateChangeReason', 'Unknown error')
+                      return {'success': False, 'error': error_msg}
+                      
+              except Exception as e:
+                  return {'success': False, 'error': str(e)}
+
+          def publish_event(event_detail):
+              """Publish event to cross-account EventBridge with detailed debugging"""
+              eventbridge = boto3.client('events')
+              event_bus_arn = f"arn:aws:events:us-east-1:{os.environ['WINGSAFE_ACCOUNT_ID']}:event-bus/{os.environ['EVENT_BUS_NAME']}"
+              
+              event_entry = {
+                  'Source': 'aero.aeroinsight',
+                  'DetailType': 'Data Table Updated',
+                  'Detail': json.dumps(event_detail),
+                  'EventBusName': event_bus_arn,
+                  'Time': datetime.utcnow()
+              }
+              
+              print(f"📡 Publishing event to EventBridge:")
+              print(f"   🎯 Event Bus: {event_bus_arn}")
+              print(f"   📝 Source: {event_entry['Source']}")
+              print(f"   📋 Detail Type: {event_entry['DetailType']}")
+              print(f"   📊 Detail: {event_entry['Detail']}")
+              print(f"   ⏰ Time: {event_entry['Time']}")
+              
+              try:
+                  response = eventbridge.put_events(Entries=[event_entry])
+                  
+                  print(f"\n✅ EventBridge Response:")
+                  print(f"   📈 Entries: {response.get('Entries', [])}")
+                  print(f"   ❌ Failed Entry Count: {response.get('FailedEntryCount', 0)}")
+                  
+                  if response.get('FailedEntryCount', 0) > 0:
+                      print(f"   🚨 Failed Entries: {response.get('Entries', [])}")
+                      return False
+                  
+                  # Show detailed EventBridge response
+                  print(f"\n📊 EventBridge Put Response Details:")
+                  for i, entry in enumerate(response.get('Entries', [])):
+                      print(f"   Entry {i}:")
+                      if 'EventId' in entry:
+                          print(f"      ✅ Event ID: {entry['EventId']}")
+                      if 'ErrorCode' in entry:
+                          print(f"      ❌ Error Code: {entry['ErrorCode']}")
+                      if 'ErrorMessage' in entry:
+                          print(f"      ❌ Error Message: {entry['ErrorMessage']}")
+                  
+                  print(f"\n📝 Event Successfully Published:")
+                  print(f"   🆔 Event ID: {response['Entries'][0].get('EventId', 'Not provided')}")
+                  print(f"   📅 Timestamp: {datetime.utcnow().isoformat()}")
+                  print(f"   🎯 Target Bus: {event_bus_arn}")
+                  print(f"   📊 Records Affected: {event_detail.get('recordCount', 0)}")
+                  
+                  return True
+                  
+              except Exception as e:
+                  print(f"❌ Error publishing event: {str(e)}")
+                  print(f"   🔍 Error type: {type(e).__name__}")
+                  if hasattr(e, 'response'):
+                      print(f"   📋 Error response: {e.response}")
+                  return False
+
+          def lambda_handler(event, context):
+              try:
+                  # Assume DataScientist role for Athena access
+                  athena_client = assume_datascientist_role()
+                  
+                  # Sample data to insert
+                  database = 'aeronav_db'
+                  table = 'navigation_waypoints'
+                  
+                  sample_data = [
+                      ('WP_POC_001', 'POC_ALPHA', 40.7128, -74.0060, 5000, 'VOR', 'US', 'POC', 108.2, 15.5),
+                      ('WP_POC_002', 'POC_BRAVO', 34.0522, -118.2437, 3000, 'NDB', 'US', 'POC', 350.0, 12.3),
+                      ('WP_POC_003', 'POC_CHARLIE', 41.8781, -87.6298, 8000, 'GPS', 'US', 'POC', 0.0, 8.7)
+                  ]
+                  
+                  # Create INSERT query
+                  values = ', '.join([
+                      f"('{d[0]}', '{d[1]}', {d[2]}, {d[3]}, {d[4]}, '{d[5]}', '{d[6]}', '{d[7]}', {d[8]}, {d[9]})"
+                      for d in sample_data
+                  ])
+                  
+                  query = f"""
+                  INSERT INTO {database}.{table} 
+                  (waypoint_id, waypoint_name, latitude, longitude, altitude_feet, waypoint_type, country_code, region, frequency_mhz, magnetic_variation)
+                  VALUES {values}
+                  """
+                  
+                  # Execute query
+                  result = execute_athena_query(athena_client, query, f"Inserting data into {table}")
+                  
+                  if result['success']:
+                      # Publish event
+                      event_detail = {
+                          'database': database,
+                          'table': table,
+                          'operation': 'INSERT',
+                          'recordCount': len(sample_data),
+                          'queryExecutionId': result['queryExecutionId'],
+                          'timestamp': datetime.utcnow().isoformat(),
+                          'sourceAccount': '707843606641'
+                      }
+                      
+                      event_result = publish_event(event_detail)
+                      
+                      return {
+                          'statusCode': 200,
+                          'body': json.dumps({
+                              'message': 'Data inserted and event published successfully' if event_result else 'Data inserted but event publishing failed',
+                              'recordsInserted': len(sample_data),
+                              'queryExecutionId': result['queryExecutionId'],
+                              'eventPublished': event_result,
+                              'eventDetail': event_detail,
+                              'eventBusArn': f"arn:aws:events:us-east-1:{os.environ['WINGSAFE_ACCOUNT_ID']}:event-bus/{os.environ['EVENT_BUS_NAME']}",
+                              'timestamp': datetime.utcnow().isoformat()
+                          })
+                      }
+                  else:
+                      return {
+                          'statusCode': 500,
+                          'body': json.dumps({'error': f"Query failed: {result['error']}"})
+                      }
+                      
+              except Exception as e:
+                  return {
+                      'statusCode': 500,
+                      'body': json.dumps({'error': str(e)})
+                  }
+
+  # Lambda permission for DataScientist role
+  DataScientistInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref DataWriterFunction
+      Action: lambda:InvokeFunction
+      Principal: '184838390535'
+
+  # Note: The WingSafe-DataScientist-CrossAccount-dev role in WingSafe account (184838390535) 
+  # needs the following permissions to be added:
+  # - athena:StartQueryExecution, athena:GetQueryExecution, athena:GetQueryResults
+  # - glue:GetTable, glue:GetDatabase, glue:UpdateTable, glue:CreateTable  
+  # - s3:GetObject, s3:PutObject, s3:ListBucket (for Athena results bucket)
+  # - lakeformation:GetDataAccess (for Iceberg table access)
+
+Outputs:
+  DataWriterFunctionName:
+    Description: 'Name of the data writer Lambda function'
+    Value: !Ref DataWriterFunction
+    Export:
+      Name: !Sub '${AWS::StackName}-DataWriterFunction'
+
+  DataWriterFunctionArn:
+    Description: 'ARN of the data writer Lambda function'
+    Value: !GetAtt DataWriterFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-DataWriterFunctionArn'

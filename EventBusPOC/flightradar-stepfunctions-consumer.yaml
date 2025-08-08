@@ -1,0 +1,407 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'FlightRadar Step Functions Event Consumer'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+  NotificationEmail:
+    Type: String
+    Default: 'raj@astragaze.com'
+
+Resources:
+  DataExportBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'flightradar-data-export-${Environment}-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  NotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub 'flightradar-notifications-${Environment}'
+
+  NotificationSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: email
+      TopicArn: !Ref NotificationTopic
+      Endpoint: !Ref NotificationEmail
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'FlightRadar-Lambda-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DataProcessingPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: sts:AssumeRole
+                Resource: 'arn:aws:iam::184838390535:role/WingSafe-DataScientist-CrossAccount-dev'
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub 'arn:aws:s3:::${DataExportBucket}/*'
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !Sub 'arn:aws:s3:::${DataExportBucket}'
+              - Effect: Allow
+                Action: sns:Publish
+                Resource: !Ref NotificationTopic
+
+  DataExportFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'flightradar-data-export-${Environment}'
+      Runtime: python3.9
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 300
+      Environment:
+        Variables:
+          EXPORT_BUCKET: !Ref DataExportBucket
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import os
+          import time
+          import csv
+          import io
+          from datetime import datetime
+
+          def assume_datascientist_role():
+              sts = boto3.client('sts')
+              role_response = sts.assume_role(
+                  RoleArn='arn:aws:iam::184838390535:role/WingSafe-DataScientist-CrossAccount-dev',
+                  RoleSessionName='FlightRadarDataExport'
+              )
+              credentials = role_response['Credentials']
+              return boto3.client(
+                  'athena',
+                  region_name='us-east-1',
+                  aws_access_key_id=credentials['AccessKeyId'],
+                  aws_secret_access_key=credentials['SecretAccessKey'],
+                  aws_session_token=credentials['SessionToken']
+              )
+
+          def lambda_handler(event, context):
+              try:
+                  print(f"Full event: {json.dumps(event, indent=2)}")
+                  
+                  # Handle different event structures
+                  event_detail = event.get('detail', {})
+                  
+                  # If detail is empty, try to get from root level
+                  if not event_detail:
+                      event_detail = event
+                  
+                  # Extract database and table with fallbacks
+                  database = event_detail.get('database') or 'aeronav_db'
+                  table = event_detail.get('table') or 'navigation_waypoints'
+                  record_count = event_detail.get('recordCount', 3)
+                  
+                  print(f"Processing event for {database}.{table} with {record_count} records")
+                  print(f"Event detail: {json.dumps(event_detail, indent=2)}")
+                  
+                  athena_client = assume_datascientist_role()
+                  s3_client = boto3.client('s3')
+                  
+                  # Ensure we have valid database and table names
+                  if not database or database == 'None':
+                      database = 'aeronav_db'
+                  if not table or table == 'None':
+                      table = 'navigation_waypoints'
+                  
+                  query = f"SELECT * FROM {database}.{table} WHERE waypoint_id LIKE 'WP_POC_%' ORDER BY waypoint_id"
+                  print(f"Executing query: {query}")
+                  
+                  response = athena_client.start_query_execution(
+                      QueryString=query,
+                      ResultConfiguration={
+                          'OutputLocation': 's3://wingsafe-athena-results-dev-184838390535/export-results/'
+                      },
+                      WorkGroup='WingSafe-DataScientist-dev'
+                  )
+                  
+                  query_execution_id = response['QueryExecutionId']
+                  
+                  while True:
+                      response = athena_client.get_query_execution(QueryExecutionId=query_execution_id)
+                      status = response['QueryExecution']['Status']['State']
+                      if status in ['SUCCEEDED', 'FAILED', 'CANCELLED']:
+                          break
+                      time.sleep(2)
+                  
+                  if status != 'SUCCEEDED':
+                      error_reason = response['QueryExecution']['Status'].get('StateChangeReason', 'No reason provided')
+                      print(f'Query failed with status: {status}')
+                      print(f'Error reason: {error_reason}')
+                      print(f'Query: {query}')
+                      raise Exception(f'Query failed: {status} - {error_reason}')
+                  
+                  results = athena_client.get_query_results(QueryExecutionId=query_execution_id)
+                  
+                  csv_data = []
+                  for i, row in enumerate(results['ResultSet']['Rows']):
+                      if i == 0:
+                          csv_data.append([col['VarCharValue'] for col in row['Data']])
+                      else:
+                          csv_data.append([col.get('VarCharValue', '') for col in row['Data']])
+                  
+                  csv_buffer = io.StringIO()
+                  csv.writer(csv_buffer).writerows(csv_data)
+                  
+                  timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+                  s3_key = f"exported-data/{database}/{table}/export_{timestamp}.csv"
+                  
+                  s3_client.put_object(
+                      Bucket=os.environ['EXPORT_BUCKET'],
+                      Key=s3_key,
+                      Body=csv_buffer.getvalue(),
+                      ContentType='text/csv'
+                  )
+                  
+                  return {
+                      'statusCode': 200,
+                      'exportLocation': f"s3://{os.environ['EXPORT_BUCKET']}/{s3_key}",
+                      'recordCount': len(csv_data) - 1,
+                      'database': database,
+                      'table': table
+                  }
+                  
+              except Exception as e:
+                  print(f'Error: {str(e)}')
+                  raise e
+
+  NotificationFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'flightradar-notification-${Environment}'
+      Runtime: python3.9
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 60
+      Environment:
+        Variables:
+          SNS_TOPIC_ARN: !Ref NotificationTopic
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import os
+          from datetime import datetime
+
+          def lambda_handler(event, context):
+              sns = boto3.client('sns')
+              
+              try:
+                  print(f"Notification event: {json.dumps(event, indent=2)}")
+                  
+                  # Extract values with proper fallbacks
+                  export_location = event.get('exportLocation', 'Not available')
+                  record_count = event.get('recordCount', 0)
+                  database = event.get('database', 'aeronav_db')
+                  table = event.get('table', 'navigation_waypoints')
+                  
+                  # If values are still unknown, use defaults
+                  if database == 'Unknown':
+                      database = 'aeronav_db'
+                  if table == 'Unknown':
+                      table = 'navigation_waypoints'
+                  
+                  message = f"FlightRadar Data Export Completed!\n\nDatabase: {database}\nTable: {table}\nRecords: {record_count}\nLocation: {export_location}\nTime: {datetime.utcnow().isoformat()}"
+                  
+                  sns.publish(
+                      TopicArn=os.environ['SNS_TOPIC_ARN'],
+                      Subject='FlightRadar Data Export Completed',
+                      Message=message
+                  )
+                  
+                  print(f"Notification sent successfully")
+                  return {'statusCode': 200, 'message': 'Notification sent'}
+                  
+              except Exception as e:
+                  print(f'Error: {str(e)}')
+                  raise e
+
+  StepFunctionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'FlightRadar-StepFunctions-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: StepFunctionsExecutionPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource:
+                  - !GetAtt DataExportFunction.Arn
+                  - !GetAtt NotificationFunction.Arn
+
+  DataProcessingStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: !Sub 'flightradar-data-processing-${Environment}'
+      RoleArn: !GetAtt StepFunctionsRole.Arn
+      DefinitionString: !Sub |
+        {
+          "Comment": "Enhanced FlightRadar data processing workflow",
+          "StartAt": "ValidateEvent",
+          "States": {
+            "ValidateEvent": {
+              "Type": "Pass",
+              "Comment": "Validate incoming event structure",
+              "Parameters": {
+                "eventValidated": true,
+                "timestamp": "$$.State.EnteredTime",
+                "originalEvent.$": "$"
+              },
+              "Next": "CheckDataQuality"
+            },
+            "CheckDataQuality": {
+              "Type": "Wait",
+              "Comment": "Simulate data quality checks",
+              "Seconds": 3,
+              "Next": "ExportData"
+            },
+            "ExportData": {
+              "Type": "Task",
+              "Resource": "${DataExportFunction.Arn}",
+              "Comment": "Export data to S3 as CSV",
+              "Next": "DemoDelay",
+              "Retry": [
+                {
+                  "ErrorEquals": ["States.ALL"],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2.0
+                }
+              ]
+            },
+            "DemoDelay": {
+              "Type": "Wait",
+              "Comment": "30-second delay for POC demo visibility",
+              "Seconds": 30,
+              "Next": "ProcessingChoice"
+            },
+            "ProcessingChoice": {
+              "Type": "Choice",
+              "Comment": "Decide processing path based on record count",
+              "Choices": [
+                {
+                  "Variable": "$.recordCount",
+                  "NumericGreaterThan": 0,
+                  "Next": "ArchiveData"
+                }
+              ],
+              "Default": "SendNotification"
+            },
+            "ArchiveData": {
+              "Type": "Pass",
+              "Comment": "Archive processed data for compliance",
+              "Parameters": {
+                "archiveStatus": "completed",
+                "archiveTimestamp": "$$.State.EnteredTime",
+                "originalData.$": "$"
+              },
+              "Next": "SendNotification"
+            },
+            "SendNotification": {
+              "Type": "Task",
+              "Resource": "${NotificationFunction.Arn}",
+              "Comment": "Send completion notification via SNS",
+              "End": true
+            }
+          }
+        }
+
+  EventBridgeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'FlightRadar-EventBridge-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: StepFunctionsInvokePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: states:StartExecution
+                Resource: !Ref DataProcessingStateMachine
+              - Effect: Allow
+                Action: events:PutEvents
+                Resource: !Sub 'arn:aws:events:us-east-1:${AWS::AccountId}:event-bus/default'
+
+  # Local EventBridge rule to trigger Step Functions
+  LocalDataUpdateRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub 'flightradar-local-data-update-rule-${Environment}'
+      Description: 'Trigger Step Functions when data is updated'
+      EventPattern:
+        source: ['aero.aeroinsight']
+        detail-type: ['Data Table Updated']
+        detail:
+          database: ['aeronav_db']
+      State: ENABLED
+      Targets:
+        - Arn: !Ref DataProcessingStateMachine
+          Id: 'DataProcessingTarget'
+          RoleArn: !GetAtt EventBridgeRole.Arn
+
+  # Cross-account rule that forwards events to local bus
+  CrossAccountForwardingRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub 'flightradar-cross-account-forwarding-${Environment}'
+      Description: 'Forward cross-account events to local bus'
+      EventBusName: 'arn:aws:events:us-east-1:184838390535:event-bus/aero-platform-cross-account-events-dev'
+      EventPattern:
+        source: ['aero.aeroinsight']
+        detail-type: ['Data Table Updated']
+        detail:
+          database: ['aeronav_db']
+      State: ENABLED
+      Targets:
+        - Arn: !Sub 'arn:aws:events:us-east-1:${AWS::AccountId}:event-bus/default'
+          Id: 'LocalEventBusTarget'
+          RoleArn: !GetAtt EventBridgeRole.Arn
+
+Outputs:
+  DataExportBucket:
+    Value: !Ref DataExportBucket
+  StateMachineArn:
+    Value: !Ref DataProcessingStateMachine
+  NotificationTopicArn:
+    Value: !Ref NotificationTopic

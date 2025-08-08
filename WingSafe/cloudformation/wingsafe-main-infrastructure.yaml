@@ -63,6 +63,18 @@ Resources:
           OutputLocation: !Sub 's3://${WingSafeAthenaResultsBucket}/query-results/'
         EnforceWorkGroupConfiguration: true
 
+  # DataScientist Athena Workgroup
+  WingSafeDataScientistWorkgroup:
+    Type: AWS::Athena::WorkGroup
+    DependsOn: WingSafeAthenaResultsBucket
+    Properties:
+      Name: !Sub 'WingSafe-DataScientist-${Environment}'
+      Description: 'DataScientist workgroup with full access'
+      WorkGroupConfiguration:
+        ResultConfiguration:
+          OutputLocation: !Sub 's3://${WingSafeAthenaResultsBucket}/datascientist-results/'
+        EnforceWorkGroupConfiguration: true
+
   # Glue Database for radar data
   FlightRadarDatabase:
     Type: AWS::Glue::Database
@@ -130,7 +142,9 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              AWS: !Sub 'arn:aws:iam::${AeroInsightAccountId}:root'
+              AWS: 
+                - !Sub 'arn:aws:iam::${AeroInsightAccountId}:root'
+                - !Sub 'arn:aws:iam::${FlightRadarAccountId}:root'
             Action: sts:AssumeRole
       Policies:
         - PolicyName: LakeFormationDataScientistPolicy
@@ -194,6 +208,30 @@ Resources:
                   - 'arn:aws:s3:::aeroweather-iceberg-data-dev-073118366505/*'
                   - 'arn:aws:s3:::aerotraffic-iceberg-data-dev-073118366505'
                   - 'arn:aws:s3:::aerotraffic-iceberg-data-dev-073118366505/*'
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  - !Sub 'arn:aws:lambda:us-east-1:${AeroInsightAccountId}:function:aero-data-writer-*'
+              - Effect: Allow
+                Action:
+                  - events:PutEvents
+                Resource:
+                  - !Sub 'arn:aws:events:us-east-1:${AWS::AccountId}:event-bus/aero-platform-cross-account-events-*'
+              - Effect: Allow
+                Action:
+                  - glue:UpdateTable
+                  - glue:CreateTable
+                  - glue:BatchCreatePartition
+                  - glue:BatchUpdatePartition
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - events:ListRules
+                  - events:ListTargetsByRule
+                  - events:DescribeRule
+                  - cloudwatch:GetMetricStatistics
+                Resource: "*"
 
   # FlightRadar Viewer cross-account role - Restricted access
   WingSafeFlightRadarViewerRole:
@@ -276,6 +314,12 @@ Outputs:
     Value: !Ref WingSafeAthenaWorkgroup
     Export:
       Name: !Sub '${AWS::StackName}-AthenaWorkgroup'
+
+  WingSafeDataScientistWorkgroup:
+    Description: DataScientist Athena workgroup
+    Value: !Ref WingSafeDataScientistWorkgroup
+    Export:
+      Name: !Sub '${AWS::StackName}-DataScientistWorkgroup'
 
   DataScientistRoleArn:
     Description: ARN of DataScientist cross-account role

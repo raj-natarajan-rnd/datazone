@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'WingSafe EventBridge Cross-Account Infrastructure'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name
+
+Resources:
+  # Cross-Account EventBridge Bus
+  AeroPlatformEventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: !Sub 'aero-platform-cross-account-events-${Environment}'
+
+  # Cross-Account Resource Policy
+  EventBusResourcePolicy:
+    Type: AWS::Events::EventBusPolicy
+    Properties:
+      EventBusName: !Ref AeroPlatformEventBus
+      StatementId: 'AllowCrossAccountAccess'
+      Statement:
+        Effect: Allow
+        Principal:
+          AWS:
+            - 'arn:aws:iam::073118366505:root'  # DataLounge
+            - 'arn:aws:iam::707843606641:root'  # AeroInsight
+            - 'arn:aws:iam::157809907894:root'  # FlightRadar
+        Action:
+          - 'events:PutEvents'
+          - 'events:List*'
+          - 'events:Describe*'
+          - 'events:PutRule'
+          - 'events:DeleteRule'
+          - 'events:PutTargets'
+          - 'events:RemoveTargets'
+        Resource: 
+          - !GetAtt AeroPlatformEventBus.Arn
+          - !Sub 'arn:aws:events:us-east-1:${AWS::AccountId}:rule/aero-platform-cross-account-events-${Environment}/*'
+
+  # Dead Letter Queue for Failed Events
+  EventDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub 'aero-platform-cross-account-dlq-${Environment}'
+      MessageRetentionPeriod: 1209600  # 14 days
+
+Outputs:
+  EventBusName:
+    Description: 'Name of the cross-account EventBridge bus'
+    Value: !Ref AeroPlatformEventBus
+    Export:
+      Name: !Sub '${AWS::StackName}-EventBusName'
+
+  EventBusArn:
+    Description: 'ARN of the cross-account EventBridge bus'
+    Value: !GetAtt AeroPlatformEventBus.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-EventBusArn'

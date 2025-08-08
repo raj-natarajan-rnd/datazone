@@ -1,0 +1,63 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'WingSafe EventBridge Rule to trigger FlightRadar Step Functions'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name
+  
+  FlightRadarAccountId:
+    Type: String
+    Default: "157809907894"
+    Description: FlightRadar account ID
+
+Resources:
+  # IAM Role for EventBridge to invoke cross-account Step Functions
+  CrossAccountEventBridgeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'WingSafe-CrossAccount-EventBridge-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CrossAccountStepFunctionsInvokePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - states:StartExecution
+                Resource: !Sub 'arn:aws:states:us-east-1:${FlightRadarAccountId}:stateMachine:flightradar-data-processing-${Environment}'
+
+  # EventBridge Rule
+  DataUpdateRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub 'flightradar-data-update-rule-${Environment}'
+      Description: 'Trigger FlightRadar Step Functions when data is updated'
+      EventBusName: !Sub 'aero-platform-cross-account-events-${Environment}'
+      EventPattern:
+        source: ['aero.aeroinsight']
+        detail-type: ['Data Table Updated']
+        detail:
+          database: ['aeronav_db']
+      State: ENABLED
+      Targets:
+        - Arn: !Sub 'arn:aws:states:us-east-1:${FlightRadarAccountId}:stateMachine:flightradar-data-processing-${Environment}'
+          Id: 'FlightRadarDataProcessingTarget'
+          RoleArn: !GetAtt CrossAccountEventBridgeRole.Arn
+
+Outputs:
+  EventBridgeRuleArn:
+    Description: 'ARN of the EventBridge rule'
+    Value: !GetAtt DataUpdateRule.Arn
+    
+  CrossAccountRoleArn:
+    Description: 'ARN of the cross-account EventBridge role'
+    Value: !GetAtt CrossAccountEventBridgeRole.Arn
