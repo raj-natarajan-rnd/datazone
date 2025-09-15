@@ -174,3 +174,34 @@ AFTER UPDATE ON acme.hu_inet_roster
 FOR EACH ROW
 WHEN (OLD IS DISTINCT FROM NEW)
 EXECUTE FUNCTION acme.trg_audit_row_detail();
+
+
+
+SELECT set_config('acme.process_step', '2-ARC', true);
+
+-- Change 3 columns in housing -> expect 3 audit rows
+UPDATE acme.hu_inet_housing
+SET broadbnd = CASE broadbnd WHEN 'Y' THEN 'N' ELSE 'Y' END,
+    rnt      = LPAD((COALESCE(NULLIF(rnt,''),'000000')::int + 4)::text, 6, '0'),
+    tax      = LPAD((COALESCE(NULLIF(tax,''),'000000')::int + 6)::text, 6, '0')
+WHERE cmid = '000000001';
+
+-- Change 2 columns in population -> expect 2 audit rows
+UPDATE acme.hu_inet_population
+SET sex = CASE sex WHEN 'M' THEN 'F' ELSE 'M' END,
+    wrk = CASE wrk WHEN 'Y' THEN 'N' ELSE 'Y' END
+WHERE cmid = '000000001' AND pnum = '001';
+
+-- Inspect results
+SELECT audit_log_id, response_table, cmid, pnum, var_name,
+       original_value, modified_value, changed_keys, created_dt
+FROM acme._audit_debug
+ORDER BY audit_log_id DESC
+LIMIT 20;
+
+-- See one full snapshot for the most recent per-field row
+SELECT response_table, cmid, pnum, var_name, old_row, new_row
+FROM acme._audit_debug
+ORDER BY audit_log_id DESC
+LIMIT 1;
+
