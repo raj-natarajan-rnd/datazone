@@ -1,72 +1,156 @@
 BEGIN;
 
--- Clear old sample rows
-DELETE FROM acme.hu_inet_population WHERE cmid BETWEEN '000000001' AND '000000010';
-DELETE FROM acme.hu_inet_roster     WHERE cmid BETWEEN '000000001' AND '000000010';
-DELETE FROM acme.hu_inet_housing    WHERE cmid BETWEEN '000000001' AND '000000010';
+-----------------------------------------------------------------------
+-- 1) Ensure created_dt / created_by / modified_dt / modified_by columns
+-----------------------------------------------------------------------
+ALTER TABLE acme.hu_inet_housing
+  ADD COLUMN IF NOT EXISTS created_dt  timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS created_by  text       NOT NULL DEFAULT SESSION_USER,
+  ADD COLUMN IF NOT EXISTS modified_dt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS modified_by text       NOT NULL DEFAULT SESSION_USER;
+
+ALTER TABLE acme.hu_inet_population
+  ADD COLUMN IF NOT EXISTS created_dt  timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS created_by  text       NOT NULL DEFAULT SESSION_USER,
+  ADD COLUMN IF NOT EXISTS modified_dt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS modified_by text       NOT NULL DEFAULT SESSION_USER;
+
+ALTER TABLE acme.hu_inet_roster
+  ADD COLUMN IF NOT EXISTS created_dt  timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS created_by  text       NOT NULL DEFAULT SESSION_USER,
+  ADD COLUMN IF NOT EXISTS modified_dt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS modified_by text       NOT NULL DEFAULT SESSION_USER;
 
 -----------------------------------------------------------------------
--- 1) Parents: HU (Internet) Housing:contentReference[oaicite:0]{index=0}
+-- 2) BEFORE UPDATE trigger function (auto-stamp modified_dt/by)
 -----------------------------------------------------------------------
-INSERT INTO acme.hu_inet_housing (cmid, broadbnd, ten, val, yrbltw, bds, rnt, tax)
-VALUES
-  ('000000001','Y','O','000250000','2010','03','001800','002400'),
-  ('000000002','Y','R','000175000','2005','02','001350','001900'),
-  ('000000003','N','O','000095000','1998','02','000900','001200'),
-  ('000000004','Y','O','000420000','2018','04','002600','003600'),
-  ('000000005','Y','R','000310000','2012','03','001950','002800'),
-  ('000000006','Y','O','000515000','2020','04','002750','003900'),
-  ('000000007','N','R','000140000','2003','02','001200','001700'),
-  ('000000008','Y','O','000360000','2016','03','002100','003100'),
-  ('000000009','Y','R','000225000','2011','03','001650','002300'),
-  ('000000010','N','O','000105000','1999','02','000950','001250');
+CREATE OR REPLACE FUNCTION acme.trg_set_modified()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.modified_dt := now();
+  NEW.modified_by := SESSION_USER;  -- auto-stamp with user
+  RETURN NEW;
+END;
+$$;
 
--- broadbnd = Y/N, ten = O (Owner), R (Renter)
+-- Attach to all 3 tables
+DROP TRIGGER IF EXISTS trg_set_modified_hu_inet_housing    ON acme.hu_inet_housing;
+DROP TRIGGER IF EXISTS trg_set_modified_hu_inet_population ON acme.hu_inet_population;
+DROP TRIGGER IF EXISTS trg_set_modified_hu_inet_roster     ON acme.hu_inet_roster;
 
------------------------------------------------------------------------
--- 2) Children: HU (Internet) Population:contentReference[oaicite:1]{index=1}
------------------------------------------------------------------------
-INSERT INTO acme.hu_inet_population (cmid, pnum, age, sex, mar, wrk, sch, wag, rac_wht)
-VALUES
-  ('000000001','001','34','M','M','Y','G','000650','Y'),
-  ('000000001','002','32','F','M','Y','C','000610','Y'),
-  ('000000002','001','45','M','M','Y','H','000820','Y'),
-  ('000000002','002','43','F','M','N','0','000000','Y'),
-  ('000000003','001','29','M','S','Y','C','000540','Y'),
-  ('000000003','002','27','F','S','Y','G','000520','Y'),
-  ('000000004','001','52','M','M','N','H','000000','Y'),
-  ('000000004','002','49','F','M','N','0','000000','Y'),
-  ('000000005','001','39','M','M','Y','C','000700','Y'),
-  ('000000005','002','07','M','S','N','0','000000','Y'),
-  ('000000006','001','31','F','M','Y','G','000590','Y'),
-  ('000000006','002','03','M','S','N','0','000000','Y'),
-  ('000000007','001','41','M','M','Y','H','000760','Y'),
-  ('000000008','001','36','F','M','Y','C','000680','Y'),
-  ('000000009','001','50','M','M','Y','H','000900','Y'),
-  ('000000009','002','48','F','M','N','0','000000','Y'),
-  ('000000010','001','26','M','S','Y','C','000510','Y');
+CREATE TRIGGER trg_set_modified_hu_inet_housing
+BEFORE UPDATE ON acme.hu_inet_housing
+FOR EACH ROW
+EXECUTE FUNCTION acme.trg_set_modified();
 
--- sex = M/F, mar = M (Married), S (Single)
--- wrk = Y/N (employed), sch = C (College), H (HighSchool), G (Graduate), 0 (none)
--- rac_wht = Y/N
+CREATE TRIGGER trg_set_modified_hu_inet_population
+BEFORE UPDATE ON acme.hu_inet_population
+FOR EACH ROW
+EXECUTE FUNCTION acme.trg_set_modified();
+
+CREATE TRIGGER trg_set_modified_hu_inet_roster
+BEFORE UPDATE ON acme.hu_inet_roster
+FOR EACH ROW
+EXECUTE FUNCTION acme.trg_set_modified();
 
 -----------------------------------------------------------------------
--- 3) Children: HU (Internet) Roster:contentReference[oaicite:2]{index=2}
+-- 3) AFTER UPDATE audit trigger function (capture old vs new)
 -----------------------------------------------------------------------
-INSERT INTO acme.hu_inet_roster
-  (cmid, rcemail, remail, rostaf01, rostal01, rostam01, mortwo01, away01, anotherx, roststay01)
-VALUES
-  ('000000001','cmid1@example.com','resp1@example.com','ALEX_01','ALEX','Y','Y','N','N','Y'),
-  ('000000002','cmid2@example.com','resp2@example.com','BEN_02','BEN','Y','N','N','N','N'),
-  ('000000003','cmid3@example.com','resp3@example.com','CHAR_03','CHAR','N','Y','Y','N','N'),
-  ('000000004','cmid4@example.com','resp4@example.com','DAN_04','DAN','Y','N','N','Y','Y'),
-  ('000000005','cmid5@example.com','resp5@example.com','ELI_05','ELI','N','Y','N','N','Y'),
-  ('000000006','cmid6@example.com','resp6@example.com','FRK_06','FRK','Y','N','N','N','Y'),
-  ('000000007','cmid7@example.com','resp7@example.com','GRC_07','GRC','N','Y','Y','N','N'),
-  ('000000008','cmid8@example.com','resp8@example.com','HEN_08','HEN','Y','N','N','N','Y'),
-  ('000000009','cmid9@example.com','resp9@example.com','ISA_09','ISA','Y','N','N','Y','N'),
-  ('000000010','cmid10@example.com','resp10@example.com','JAC_10','JAC','N','Y','N','N','Y');
+CREATE OR REPLACE FUNCTION acme.trg_audit_update()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_step text;
+  v_cmid text;
+  v_pnum text;
+  r       record;
+BEGIN
+  -- Skip if nothing actually changed
+  IF NEW IS NOT DISTINCT FROM OLD THEN
+    RETURN NEW;
+  END IF;
 
--- rostam01, mortwo01, away01, anotherx, roststay01 now Y/N instead of 1/0
+  -- Determine process step: trigger arg > session GUC > default
+  BEGIN
+    v_step := NULLIF(TG_ARGV[0], '');
+  EXCEPTION WHEN OTHERS THEN
+    v_step := NULL;
+  END;
+
+  IF v_step IS NULL THEN
+    v_step := NULLIF(current_setting('acme.process_step', true), '');
+  END IF;
+
+  IF v_step IS NULL THEN
+    v_step := '3-Normalize';
+  END IF;
+
+  -- Extract cmid
+  v_cmid := NEW.cmid::text;
+
+  -- Extract pnum if present
+  IF to_jsonb(NEW) ? 'pnum' THEN
+    v_pnum := (to_jsonb(NEW)->>'pnum');
+  ELSE
+    v_pnum := NULL;
+  END IF;
+
+  -- Iterate through column differences
+  FOR r IN
+    WITH oldj AS (SELECT to_jsonb(OLD) AS j),
+         newj AS (SELECT to_jsonb(NEW) AS j),
+         pairs AS (
+           SELECT n.key,
+                  o.j ->> n.key AS oldval,
+                  n.j ->> n.key AS newval
+           FROM jsonb_each((SELECT j FROM newj)) AS n(key, j)
+           JOIN jsonb_each((SELECT j FROM oldj)) AS o(key, j) USING (key)
+         )
+    SELECT key, oldval, newval
+    FROM pairs
+    WHERE (oldval IS DISTINCT FROM newval)
+      AND key NOT IN (
+        'cmid','pnum',
+        'created_dt','created_by',
+        'modified_dt','modified_by'
+      )
+  LOOP
+    INSERT INTO acme.audit_log
+      (cmid, pnum, response_table, action_code, var_name,
+       original_value, modified_value, process_step)
+    VALUES
+      (v_cmid, v_pnum, TG_TABLE_NAME, 'UPDATE', r.key,
+       r.oldval, r.newval, v_step);
+  END LOOP;
+
+  RETURN NEW;
+END;
+$$;
+
+-- Attach to all 3 tables
+DROP TRIGGER IF EXISTS trg_audit_hu_inet_housing    ON acme.hu_inet_housing;
+DROP TRIGGER IF EXISTS trg_audit_hu_inet_population ON acme.hu_inet_population;
+DROP TRIGGER IF EXISTS trg_audit_hu_inet_roster     ON acme.hu_inet_roster;
+
+CREATE TRIGGER trg_audit_hu_inet_housing
+AFTER UPDATE ON acme.hu_inet_housing
+FOR EACH ROW
+WHEN (OLD IS DISTINCT FROM NEW)
+EXECUTE FUNCTION acme.trg_audit_update();
+
+CREATE TRIGGER trg_audit_hu_inet_population
+AFTER UPDATE ON acme.hu_inet_population
+FOR EACH ROW
+WHEN (OLD IS DISTINCT FROM NEW)
+EXECUTE FUNCTION acme.trg_audit_update();
+
+CREATE TRIGGER trg_audit_hu_inet_roster
+AFTER UPDATE ON acme.hu_inet_roster
+FOR EACH ROW
+WHEN (OLD IS DISTINCT FROM NEW)
+EXECUTE FUNCTION acme.trg_audit_update();
 
 COMMIT;
