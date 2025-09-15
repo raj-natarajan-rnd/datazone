@@ -168,3 +168,32 @@ AFTER UPDATE ON acme.hu_inet_roster
 FOR EACH ROW
 WHEN (OLD IS DISTINCT FROM NEW)
 EXECUTE FUNCTION acme.trg_audit_update();
+
+
+
+
+
+
+
+
+
+-- Optional: set pipeline step label
+SELECT set_config('acme.process_step', '1-Initial', true);
+
+-- 1) Real data changes (expect per-column rows)
+UPDATE acme.hu_inet_housing
+SET broadbnd = CASE broadbnd WHEN 'Y' THEN 'N' ELSE 'Y' END,
+    rnt      = LPAD((COALESCE(NULLIF(rnt,''),'000000')::int + 5)::text, 6, '0')
+WHERE cmid = '000000001';
+
+-- 2) Meta-only change (no real fields) — still logs modified_dt/modified_by diffs
+UPDATE acme.hu_inet_population
+SET pnum = pnum
+WHERE cmid = '000000001' AND pnum = '001';
+
+-- 3) Inspect last few audit rows
+SELECT audit_log_id, response_table, cmid, pnum, var_name,
+       original_value, modified_value, process_step, created_dt
+FROM acme._audit_debug
+ORDER BY audit_log_id DESC
+LIMIT 30;
