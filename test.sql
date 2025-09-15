@@ -1,19 +1,34 @@
--- Make sure triggers are allowed to fire
-SHOW session_replication_role;           -- must be 'origin'
--- if not origin, run:
-SET SESSION session_replication_role = origin;
+-- 2.1: debug sink
+CREATE TABLE IF NOT EXISTS acme._audit_debug (
+  ts timestamptz DEFAULT now(),
+  table_name text,
+  cmid text,
+  note text
+);
 
--- Make sure NOTICEs are visible (optional)
-SHOW client_min_messages;                -- set to 'notice' or lower
-SET client_min_messages = notice;
+-- 2.2: simplest possible trigger func that *must* run if triggers are enabled
+CREATE OR REPLACE FUNCTION acme._trg_probe()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  INSERT INTO acme._audit_debug(table_name, cmid, note)
+  VALUES (TG_TABLE_NAME, NEW.cmid::text, 'probe fired');
+  RETURN NEW;
+END;
+$$;
 
--- Confirm triggers exist & are enabled ('O')
-SELECT c.relname AS table_name, t.tgname, t.tgenabled, p.proname AS function_name
-FROM pg_trigger t
-JOIN pg_class  c ON c.oid = t.tgrelid
-JOIN pg_proc   p ON p.oid = t.tgfoid
-WHERE c.oid IN ('acme.hu_inet_housing'::regclass,
-                'acme.hu_inet_population'::regclass,
-                'acme.hu_inet_roster'::regclass)
-  AND NOT t.tgisinternal
-ORDER BY table_name, tgname;
+-- 2.3: attach ONLY to housing (no WHEN clause)
+DROP TRIGGER IF EXISTS _trg_probe_housing ON acme.hu_inet_housing;
+CREATE TRIGGER _trg_probe_housing
+BEFORE UPDATE ON acme.hu_inet_housing
+FOR EACH ROW
+EXECUTE FUNCTION acme._trg_probe();
+
+-- 2.4: force an update that changes *something*
+UPDATE acme.hu_inet_housing
+SET broadbnd = CASE broadbnd WHEN 'Y' THEN 'N' ELSE 'Y' END
+WHERE cmid = '000000001';
+
+-- 2.5: did the probe fire?
+SELECT * FROM acme._audit_debug ORDER BY ts DESC LIMIT 5;
