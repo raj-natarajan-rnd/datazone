@@ -1,10 +1,7 @@
--- ===========================================
--- ALL-COLUMNS AUDITING (no exclusions)
--- Logs every changed column on UPDATE
--- Target audit table: acme._audit_debug
--- ===========================================
+-- Make sure user triggers fire
+SET SESSION session_replication_role = origin;
 
--- 0) Make sure target tables have meta columns (idempotent)
+-- 0) Ensure meta columns exist on target tables (idempotent)
 ALTER TABLE acme.hu_inet_housing
   ADD COLUMN IF NOT EXISTS created_dt  timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   ADD COLUMN IF NOT EXISTS created_by  text       NOT NULL DEFAULT SESSION_USER,
@@ -23,50 +20,47 @@ ALTER TABLE acme.hu_inet_roster
   ADD COLUMN IF NOT EXISTS modified_dt timestamp  NOT NULL DEFAULT CURRENT_TIMESTAMP,
   ADD COLUMN IF NOT EXISTS modified_by text       NOT NULL DEFAULT SESSION_USER;
 
--- 1) Ensure audit table schema (idempotent)
-CREATE TABLE IF NOT EXISTS acme._audit_debug (
-  ts              timestamptz DEFAULT now(),
-  table_name      text,
-  cmid            text,
-  note            text
-);
-
+-- 1) Final audit table: add required columns (idempotent)
 CREATE SEQUENCE IF NOT EXISTS acme._audit_debug_id_seq;
 
-ALTER TABLE acme._audit_debug
-  ADD COLUMN IF NOT EXISTS audit_log_id     bigint,
-  ADD COLUMN IF NOT EXISTS pnum             varchar(9),
-  ADD COLUMN IF NOT EXISTS response_table   varchar(50),
-  ADD COLUMN IF NOT EXISTS action_code      varchar(10),
-  ADD COLUMN IF NOT EXISTS var_name         varchar(63),  -- allow long column names
-  ADD COLUMN IF NOT EXISTS original_value   varchar(200),
-  ADD COLUMN IF NOT EXISTS modified_value   varchar(200),
-  ADD COLUMN IF NOT EXISTS process_step     varchar(20),
-  ADD COLUMN IF NOT EXISTS created_dt       timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  ADD COLUMN IF NOT EXISTS created_by       text       NOT NULL DEFAULT SESSION_USER;
+CREATE TABLE IF NOT EXISTS acme._audit_debug (
+  audit_log_id   bigint PRIMARY KEY DEFAULT nextval('acme._audit_debug_id_seq'),
+  response_table varchar(50),
+  action_code    varchar(10),
+  process_step   varchar(20),
+  cmid           text,
+  pnum           text,
+  changed_keys   text[],
+  old_row        jsonb,
+  new_row        jsonb,
+  created_dt     timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by     text       NOT NULL DEFAULT SESSION_USER,
+  -- keep the debug helper columns if you already had them:
+  ts             timestamptz DEFAULT now(),
+  table_name     text,
+  note           text
+);
 
--- Backfill IDs and enforce PK/default
-UPDATE acme._audit_debug
-SET audit_log_id = nextval('acme._audit_debug_id_seq')
-WHERE audit_log_id IS NULL;
-
+-- Align existing table if it already existed
 ALTER TABLE acme._audit_debug
   ALTER COLUMN audit_log_id SET DEFAULT nextval('acme._audit_debug_id_seq');
 
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint
-    WHERE conrelid = 'acme._audit_debug'::regclass AND contype = 'p'
-  ) THEN
-    ALTER TABLE acme._audit_debug
-      ADD CONSTRAINT _audit_debug_pkey PRIMARY KEY (audit_log_id);
-  END IF;
-END$$;
-
 ALTER SEQUENCE acme._audit_debug_id_seq OWNED BY acme._audit_debug.audit_log_id;
 
--- 2) BEFORE UPDATE stamper (unconditional -> always bumps modified_*)
+-- Add any missing columns (safe if already present)
+ALTER TABLE acme._audit_debug
+  ADD COLUMN IF NOT EXISTS response_table varchar(50),
+  ADD COLUMN IF NOT EXISTS action_code    varchar(10),
+  ADD COLUMN IF NOT EXISTS process_step   varchar(20),
+  ADD COLUMN IF NOT EXISTS cmid           text,
+  ADD COLUMN IF NOT EXISTS pnum           text,
+  ADD COLUMN IF NOT EXISTS changed_keys   text[],
+  ADD COLUMN IF NOT EXISTS old_row        jsonb,
+  ADD COLUMN IF NOT EXISTS new_row        jsonb,
+  ADD COLUMN IF NOT EXISTS created_dt     timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS created_by     text       NOT NULL DEFAULT SESSION_USER;
+
+-- 2) BEFORE UPDATE stamper (unconditional so meta diffs also get logged)
 CREATE OR REPLACE FUNCTION acme.trg_set_modified()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -97,20 +91,20 @@ BEFORE UPDATE ON acme.hu_inet_roster
 FOR EACH ROW
 EXECUTE FUNCTION acme.trg_set_modified();
 
--- 3) AFTER UPDATE audit trigger (ALL COLUMNS), SECURITY DEFINER
-CREATE OR REPLACE FUNCTION acme.trg_audit_update()
+-- 3) AFTER UPDATE: ROW SNAPSHOT (logs ANY changed column)
+CREATE OR REPLACE FUNCTION acme.trg_audit_row_snapshot()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = acme, pg_temp
 AS $$
 DECLARE
-  v_step text;
-  v_cmid text;
-  v_pnum text;
-  r      record;
+  v_step    text;
+  v_cmid    text;
+  v_pnum    text;
+  v_changed text[];
 BEGIN
-  -- If the row bytes are identical (rare), skip
+  -- If row bytes are identical, skip (rare)
   IF NEW IS NOT DISTINCT FROM OLD THEN
     RETURN NEW;
   END IF;
@@ -119,34 +113,32 @@ BEGIN
                      NULLIF(current_setting('acme.process_step', true), ''),
                      '3-Normalize');
 
-  -- Extract keys if present
-  v_cmid := CASE WHEN to_jsonb(NEW) ? 'cmid' THEN to_jsonb(NEW)->>'cmid' ELSE NULL END;
-  v_pnum := CASE WHEN to_jsonb(NEW) ? 'pnum' THEN to_jsonb(NEW)->>'pnum' ELSE NULL END;
+  -- Extract keys when present
+  IF to_jsonb(NEW) ? 'cmid' THEN v_cmid := to_jsonb(NEW)->>'cmid'; END IF;
+  IF to_jsonb(NEW) ? 'pnum' THEN v_pnum := to_jsonb(NEW)->>'pnum'; END IF;
 
-  -- DIFF: no exclusions -> log ANY column that changed
-  FOR r IN
-    WITH oldj AS (SELECT to_jsonb(OLD) AS j),
-         newj AS (SELECT to_jsonb(NEW) AS j)
-    SELECT n.key, (o.j ->> n.key) AS oldval, (n.j ->> n.key) AS newval
-    FROM jsonb_each((SELECT j FROM newj)) AS n(key, j)
-    JOIN jsonb_each((SELECT j FROM oldj)) AS o(key, j) USING (key)
-    WHERE (o.j ->> n.key) IS DISTINCT FROM (n.j ->> n.key)
-  LOOP
-    INSERT INTO acme._audit_debug
-      (cmid, pnum, response_table, action_code, var_name,
-       original_value, modified_value, process_step,
-       table_name, note)
-    VALUES
-      (v_cmid, v_pnum, TG_TABLE_NAME, 'UPDATE', r.key,
-       r.oldval, r.newval, v_step,
-       TG_TABLE_NAME, NULL);
-  END LOOP;
+  -- Compute changed column names (no exclusions)
+  SELECT COALESCE(array_agg(n.key ORDER BY n.key), ARRAY[]::text[])
+    INTO v_changed
+  FROM jsonb_each(to_jsonb(NEW)) AS n(key, val_n)
+  JOIN jsonb_each(to_jsonb(OLD)) AS o(key, val_o) USING (key)
+  WHERE val_n IS DISTINCT FROM val_o;
+
+  -- Insert one snapshot row per UPDATE
+  INSERT INTO acme._audit_debug
+    (response_table, action_code, process_step,
+     cmid, pnum, changed_keys, old_row, new_row,
+     table_name, note)
+  VALUES
+    (TG_TABLE_NAME, 'UPDATE', v_step,
+     v_cmid, v_pnum, v_changed, to_jsonb(OLD), to_jsonb(NEW),
+     TG_TABLE_NAME, NULL);
 
   RETURN NEW;
 END;
 $$;
 
--- Attach AFTER UPDATE triggers (safe to re-run)
+-- Attach AFTER UPDATE triggers (replace any older ones)
 DROP TRIGGER IF EXISTS trg_audit_hu_inet_housing    ON acme.hu_inet_housing;
 DROP TRIGGER IF EXISTS trg_audit_hu_inet_population ON acme.hu_inet_population;
 DROP TRIGGER IF EXISTS trg_audit_hu_inet_roster     ON acme.hu_inet_roster;
@@ -155,45 +147,45 @@ CREATE TRIGGER trg_audit_hu_inet_housing
 AFTER UPDATE ON acme.hu_inet_housing
 FOR EACH ROW
 WHEN (OLD IS DISTINCT FROM NEW)
-EXECUTE FUNCTION acme.trg_audit_update();
+EXECUTE FUNCTION acme.trg_audit_row_snapshot();
 
 CREATE TRIGGER trg_audit_hu_inet_population
 AFTER UPDATE ON acme.hu_inet_population
 FOR EACH ROW
 WHEN (OLD IS DISTINCT FROM NEW)
-EXECUTE FUNCTION acme.trg_audit_update();
+EXECUTE FUNCTION acme.trg_audit_row_snapshot();
 
 CREATE TRIGGER trg_audit_hu_inet_roster
 AFTER UPDATE ON acme.hu_inet_roster
 FOR EACH ROW
 WHEN (OLD IS DISTINCT FROM NEW)
-EXECUTE FUNCTION acme.trg_audit_update();
+EXECUTE FUNCTION acme.trg_audit_row_snapshot();
 
-
-
-
-
-
-
-
-
--- Optional: set pipeline step label
+-- 4) Deterministic smoke test
 SELECT set_config('acme.process_step', '1-Initial', true);
 
--- 1) Real data changes (expect per-column rows)
 UPDATE acme.hu_inet_housing
 SET broadbnd = CASE broadbnd WHEN 'Y' THEN 'N' ELSE 'Y' END,
-    rnt      = LPAD((COALESCE(NULLIF(rnt,''),'000000')::int + 5)::text, 6, '0')
+    rnt      = LPAD((COALESCE(NULLIF(rnt,''),'000000')::int + 9)::text, 6, '0')
 WHERE cmid = '000000001';
 
--- 2) Meta-only change (no real fields) — still logs modified_dt/modified_by diffs
 UPDATE acme.hu_inet_population
-SET pnum = pnum
+SET wrk = CASE wrk WHEN 'Y' THEN 'N' ELSE 'Y' END
 WHERE cmid = '000000001' AND pnum = '001';
 
--- 3) Inspect last few audit rows
-SELECT audit_log_id, response_table, cmid, pnum, var_name,
-       original_value, modified_value, process_step, created_dt
+UPDATE acme.hu_inet_roster
+SET rostam01 = CASE rostam01 WHEN 'Y' THEN 'N' ELSE 'Y' END
+WHERE cmid = '000000001';
+
+-- Inspect the last few audit rows
+SELECT audit_log_id, response_table, action_code, process_step,
+       cmid, pnum, changed_keys, created_dt, created_by
 FROM acme._audit_debug
 ORDER BY audit_log_id DESC
-LIMIT 30;
+LIMIT 10;
+
+-- See full before/after JSON for the most recent row
+SELECT response_table, cmid, pnum, changed_keys, old_row, new_row, created_dt
+FROM acme._audit_debug
+ORDER BY audit_log_id DESC
+LIMIT 1;
