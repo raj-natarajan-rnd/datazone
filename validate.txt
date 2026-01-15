@@ -1,1 +1,13 @@
-
+ec2	DescribeVpnGateways
+ec2	SearchLocalGatewayRoutes
+ecr	DescribeRegistry
+ecr	DescribeRepositories
+ecr	ListImages
+ecs	Describe*
+ecs	List*
+eks	ListTagsForResource
+elasticfilesystem	DescribeFileSystems
+elasticloadbalancing	DescribeInstanceHealth
+elasticloadbalancing	DescribeListeners
+elasticloadbalancing	DescribeLoadBalancerAttributes
+elasticloadbalancing	DescribeLoadBalancers
