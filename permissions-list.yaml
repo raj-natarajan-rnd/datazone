@@ -1,0 +1,414 @@
+# AWS Permissions Validation Configuration
+# ==========================================
+
+# Configuration Section
+config:
+  # AWS region to use for API calls
+  region: us-east-1
+
+  # AWS profile name (use 'default' for default profile, or specify profile name)
+  profile: vy-rnd
+
+  # Description of the validation (for documentation purposes)
+  description: "Validating read-only permissions for PriceLake access"
+
+  # Query CloudTrail for denied permissions (requires cloudtrail:LookupEvents)
+  check_cloudtrail: false
+
+# Permissions to Validate
+# =======================
+# Format: service -> list of read-only permissions to validate
+# Only read-only (Describe*, List*, Get*) permissions should be listed
+
+permissions:
+  acm:
+    - ListCertificates
+
+  apigateway:
+    # GET permission expanded
+    - GetRestApis
+    - GetResources
+    - GetMethod
+    - GetStages
+    - GetDeployments
+    - GetApiKeys
+    - GetUsagePlans
+    - GetDomainNames
+    - GetAuthorizers
+
+  athena:
+    # List* expanded
+    - ListWorkGroups
+    - ListDataCatalogs
+    - ListDatabases
+    - ListNamedQueries
+    - ListQueryExecutions
+    - ListTableMetadata
+
+  autoscaling:
+    # Describe* expanded
+    - DescribeAutoScalingGroups
+    - DescribeAutoScalingInstances
+    - DescribeLaunchConfigurations
+    - DescribePolicies
+    - DescribeScalingActivities
+    - DescribeScheduledActions
+    - DescribeTags
+
+  cloudwatch:
+    # Get* and List* expanded
+    - GetDashboard
+    - GetMetricData
+    - GetMetricStatistics
+    - ListDashboards
+    - ListMetrics
+    - DescribeAlarms
+    - DescribeAlarmsForMetric
+
+  cognito-idp:
+    # List* expanded
+    - ListUserPools
+    - ListIdentityProviders
+    - ListResourceServers
+
+  dynamodb:
+    # All specific permissions from temp-perm.txt
+    - DescribeBackup
+    - DescribeContinuousBackups
+    - DescribeGlobalTable
+    - DescribeGlobalTableSettings
+    - DescribeLimits
+    # DescribeReservedCapacity - not available in boto3
+    # DescribeReservedCapacityOfferings - not available in boto3
+    - DescribeStream
+    - DescribeTable
+    - DescribeTimeToLive
+    - ListBackups
+    - ListExports
+    - ListGlobalTables
+    - ListStreams
+    - ListTables
+    - ListTagsOfResource
+
+  ec2:
+    # All specific permissions from temp-perm.txt
+    - DescribeAccountAttributes
+    - DescribeAddresses
+    - DescribeAvailabilityZones
+    - DescribeBundleTasks
+    - DescribeCarrierGateways
+    - DescribeClassicLinkInstances
+    - DescribeConversionTasks
+    - DescribeCustomerGateways
+    - DescribeDhcpOptions
+    - DescribeExportTasks
+    - DescribeFlowLogs
+    # DescribeHost* expanded
+    - DescribeHostReservationOfferings
+    - DescribeHostReservations
+    - DescribeHosts
+    - DescribeIdentityIdFormat
+    - DescribeIdFormat
+    # DescribeImage* expanded
+    - DescribeImageAttribute
+    - DescribeImages
+    # DescribeImport* expanded
+    - DescribeImportImageTasks
+    - DescribeImportSnapshotTasks
+    # DescribeInstance* expanded
+    - DescribeInstanceAttribute
+    - DescribeInstanceCreditSpecifications
+    - DescribeInstances
+    - DescribeInstanceStatus
+    - DescribeInstanceTypes
+    - DescribeInternetGateways
+    - DescribeKeyPairs
+    - DescribeLocalGatewayRouteTables
+    - DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociations
+    - DescribeLocalGatewayRouteTableVpcAssociations
+    - DescribeLocalGateways
+    - DescribeLocalGatewayVirtualInterfaceGroups
+    - DescribeLocalGatewayVirtualInterfaces
+    - DescribeMovingAddresses
+    - DescribeNatGateways
+    # DescribeNetwork* expanded
+    - DescribeNetworkAcls
+    - DescribeNetworkInsightsAccessScopeAnalyses
+    - DescribeNetworkInsightsAccessScopes
+    - DescribeNetworkInsightsAnalyses
+    - DescribeNetworkInsightsPaths
+    - DescribeNetworkInterfaceAttribute
+    - DescribeNetworkInterfacePermissions
+    - DescribeNetworkInterfaces
+    - DescribePlacementGroups
+    - DescribePrefixLists
+    - DescribeRegions
+    # DescribeReserved* expanded
+    - DescribeReservedInstances
+    - DescribeReservedInstancesListings
+    - DescribeReservedInstancesModifications
+    - DescribeReservedInstancesOfferings
+    - DescribeRouteTables
+    - DescribeSecurityGroupRules
+    - DescribeSecurityGroups
+    # DescribeSnapshot* expanded
+    - DescribeSnapshotAttribute
+    - DescribeSnapshots
+    - DescribeSnapshotTierStatus
+    # DescribeSpot* expanded
+    - DescribeSpotDatafeedSubscription
+    - DescribeSpotFleetInstances
+    - DescribeSpotFleetRequestHistory
+    - DescribeSpotFleetRequests
+    - DescribeSpotInstanceRequests
+    - DescribeSpotPriceHistory
+    - DescribeSubnets
+    - DescribeTags
+    # DescribeVolume* expanded
+    - DescribeVolumeAttribute
+    - DescribeVolumes
+    - DescribeVolumesModifications
+    - DescribeVolumeStatus
+    # DescribeVpc* expanded
+    - DescribeVpcAttribute
+    - DescribeVpcClassicLink
+    - DescribeVpcClassicLinkDnsSupport
+    - DescribeVpcEndpointConnectionNotifications
+    - DescribeVpcEndpointConnections
+    - DescribeVpcEndpoints
+    - DescribeVpcEndpointServiceConfigurations
+    - DescribeVpcEndpointServicePermissions
+    - DescribeVpcEndpointServices
+    - DescribeVpcPeeringConnections
+    - DescribeVpcs
+    - DescribeVpnConnections
+    - DescribeVpnGateways
+    - SearchLocalGatewayRoutes
+
+  ecr:
+    - DescribeRegistry
+    - DescribeRepositories
+    - ListImages
+
+  ecs:
+    # Describe* and List* expanded
+    - DescribeCapacityProviders
+    - DescribeClusters
+    - DescribeContainerInstances
+    - DescribeServices
+    - DescribeTaskDefinition
+    - DescribeTaskSets
+    - DescribeTasks
+    - ListAccountSettings
+    - ListAttributes
+    - ListClusters
+    - ListContainerInstances
+    - ListServices
+    - ListTagsForResource
+    - ListTaskDefinitionFamilies
+    - ListTaskDefinitions
+    - ListTasks
+
+  eks:
+    - ListTagsForResource
+    - ListClusters
+    - DescribeCluster
+    - ListNodegroups
+
+  efs:
+    - DescribeFileSystems
+    - DescribeMountTargets
+    - DescribeAccessPoints
+
+  elasticloadbalancing:
+    - DescribeInstanceHealth
+    - DescribeListeners
+    - DescribeLoadBalancerAttributes
+    - DescribeLoadBalancers
+    - DescribeTargetGroups
+    - DescribeTargetHealth
+    - DescribeRules
+    - DescribeTags
+
+  events:
+    - ListRuleNamesByTarget
+    - ListRules
+    - ListTargetsByRule
+    - ListEventBuses
+
+  glue:
+    - GetTags
+    - GetDatabases
+    - GetTables
+    - GetJobs
+    - GetCrawlers
+    - GetConnections
+
+  iam:
+    - GetAccountSummary
+    - GetLoginProfile
+    # List* expanded
+    - ListAccessKeys
+    - ListAccountAliases
+    - ListAttachedGroupPolicies
+    - ListAttachedRolePolicies
+    - ListAttachedUserPolicies
+    - ListEntitiesForPolicy
+    - ListGroupPolicies
+    - ListGroups
+    - ListGroupsForUser
+    - ListInstanceProfiles
+    - ListInstanceProfilesForRole
+    - ListMFADevices
+    - ListOpenIDConnectProviders
+    - ListPolicies
+    - ListPolicyVersions
+    - ListRolePolicies
+    - ListRoles
+    - ListRoleTags
+    - ListSAMLProviders
+    - ListServerCertificates
+    - ListServiceSpecificCredentials
+    - ListSigningCertificates
+    - ListSSHPublicKeys
+    - ListUserPolicies
+    - ListUsers
+    - ListUserTags
+    - ListVirtualMFADevices
+
+  kafka:
+    - ListClusters
+    - ListConfigurations
+
+  kms:
+    - ListKeys
+    - ListResourceTags
+    - ListAliases
+    - DescribeKey
+
+  lambda:
+    # List* expanded
+    - ListAliases
+    - ListCodeSigningConfigs
+    - ListEventSourceMappings
+    - ListFunctionEventInvokeConfigs
+    - ListFunctions
+    - ListFunctionsByCodeSigningConfig
+    - ListFunctionUrlConfigs
+    - ListLayers
+    - ListLayerVersions
+    - ListProvisionedConcurrencyConfigs
+    - ListTags
+    - ListVersionsByFunction
+
+  logs:
+    # Describe* expanded
+    - DescribeDestinations
+    - DescribeExportTasks
+    - DescribeLogGroups
+    - DescribeLogStreams
+    - DescribeMetricFilters
+    - DescribeQueries
+    - DescribeQueryDefinitions
+    - DescribeResourcePolicies
+    - DescribeSubscriptionFilters
+    - GetTransformer
+    # ListEntitiesForLogGroup - not available in boto3
+    # ListLogGroupsForEntity - not available in boto3
+    - ListLogGroupsForQuery
+    - ListTagsForResource
+
+  rds:
+    # Describe* expanded
+    - DescribeAccountAttributes
+    - DescribeCertificates
+    - DescribeDBClusterEndpoints
+    - DescribeDBClusterParameterGroups
+    - DescribeDBClusterParameters
+    - DescribeDBClusters
+    - DescribeDBClusterSnapshotAttributes
+    - DescribeDBClusterSnapshots
+    - DescribeDBEngineVersions
+    - DescribeDBInstanceAutomatedBackups
+    - DescribeDBInstances
+    - DescribeDBLogFiles
+    - DescribeDBParameterGroups
+    - DescribeDBParameters
+    - DescribeDBProxies
+    - DescribeDBSecurityGroups
+    - DescribeDBSnapshotAttributes
+    - DescribeDBSnapshots
+    - DescribeDBSubnetGroups
+    - DescribeEngineDefaultClusterParameters
+    - DescribeEngineDefaultParameters
+    - DescribeEventCategories
+    - DescribeEvents
+    - DescribeEventSubscriptions
+    - DescribeExportTasks
+    - DescribeGlobalClusters
+    - DescribeOptionGroupOptions
+    - DescribeOptionGroups
+    - DescribeOrderableDBInstanceOptions
+    - DescribePendingMaintenanceActions
+    - DescribeReservedDBInstances
+    - DescribeReservedDBInstancesOfferings
+    - DescribeSourceRegions
+
+  redshift:
+    - DescribeClusters
+    - DescribeEvents
+    - DescribeClusterSnapshots
+    - DescribeClusterSubnetGroups
+    - DescribeClusterParameterGroups
+
+  s3:
+    # ListAllMyBuckets = ListBuckets API
+    - ListBuckets
+    # ListBucket = ListObjectsV2 API (requires bucket)
+    - ListObjectsV2
+    - ListMultiRegionAccessPoints
+    - GetBucketLocation
+    - GetBucketVersioning
+    - GetBucketTagging
+    - GetBucketPolicy
+    - GetBucketAcl
+
+  sns:
+    # List* expanded
+    - ListEndpointsByPlatformApplication
+    - ListOriginationNumbers
+    - ListPhoneNumbersOptedOut
+    - ListPlatformApplications
+    - ListSMSSandboxPhoneNumbers
+    - ListSubscriptions
+    - ListSubscriptionsByTopic
+    - ListTagsForResource
+    - ListTopics
+
+  sqs:
+    - GetQueueAttributes
+    - GetQueueUrl
+    - ListDeadLetterSourceQueues
+    - ListMessageMoveTasks
+    - ListQueues
+    - ListQueueTags
+
+  ssm:
+    - ListAssociations
+    - ListDocuments
+    - ListCommands
+    - ListComplianceItems
+    - ListInventoryEntries
+    - DescribeInstanceInformation
+
+  states:
+    - ListActivities
+    - ListExecutions
+    - ListMapRuns
+    - ListStateMachineAliases
+    - ListStateMachines
+    - ListStateMachineVersions
+    - DescribeStateMachine
+
+  sts:
+    - GetCallerIdentity
