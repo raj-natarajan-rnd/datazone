@@ -1,0 +1,798 @@
+# AWS Permissions CLI Commands
+# =============================
+# Each permission mapped to its corresponding AWS CLI command
+# Profile: vy-rnd | Region: us-east-1
+
+config:
+  profile: vy-rnd
+  region: us-east-1
+  description: "CLI commands for validating read-only AWS permissions"
+
+permissions:
+  acm:
+    - action: ListCertificates
+      cli: "aws acm list-certificates --profile vy-rnd --region us-east-1"
+
+  apigateway:
+    - action: GetRestApis
+      cli: "aws apigateway get-rest-apis --profile vy-rnd --region us-east-1"
+    - action: GetResources
+      cli: "aws apigateway get-resources --rest-api-id <REST_API_ID> --profile vy-rnd --region us-east-1"
+      note: "Requires --rest-api-id parameter"
+    - action: GetMethod
+      cli: "aws apigateway get-method --rest-api-id <REST_API_ID> --resource-id <RESOURCE_ID> --http-method GET --profile vy-rnd --region us-east-1"
+      note: "Requires --rest-api-id, --resource-id, and --http-method parameters"
+    - action: GetStages
+      cli: "aws apigateway get-stages --rest-api-id <REST_API_ID> --profile vy-rnd --region us-east-1"
+      note: "Requires --rest-api-id parameter"
+    - action: GetDeployments
+      cli: "aws apigateway get-deployments --rest-api-id <REST_API_ID> --profile vy-rnd --region us-east-1"
+      note: "Requires --rest-api-id parameter"
+    - action: GetApiKeys
+      cli: "aws apigateway get-api-keys --profile vy-rnd --region us-east-1"
+    - action: GetUsagePlans
+      cli: "aws apigateway get-usage-plans --profile vy-rnd --region us-east-1"
+    - action: GetDomainNames
+      cli: "aws apigateway get-domain-names --profile vy-rnd --region us-east-1"
+    - action: GetAuthorizers
+      cli: "aws apigateway get-authorizers --rest-api-id <REST_API_ID> --profile vy-rnd --region us-east-1"
+      note: "Requires --rest-api-id parameter"
+
+  athena:
+    - action: ListWorkGroups
+      cli: "aws athena list-work-groups --profile vy-rnd --region us-east-1"
+    - action: ListDataCatalogs
+      cli: "aws athena list-data-catalogs --profile vy-rnd --region us-east-1"
+    - action: ListDatabases
+      cli: "aws athena list-databases --catalog-name AwsDataCatalog --profile vy-rnd --region us-east-1"
+    - action: ListNamedQueries
+      cli: "aws athena list-named-queries --profile vy-rnd --region us-east-1"
+    - action: ListQueryExecutions
+      cli: "aws athena list-query-executions --profile vy-rnd --region us-east-1"
+    - action: ListTableMetadata
+      cli: "aws athena list-table-metadata --catalog-name <CATALOG_NAME> --database-name <DATABASE_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --catalog-name and --database-name parameters"
+
+  autoscaling:
+    - action: DescribeAutoScalingGroups
+      cli: "aws autoscaling describe-auto-scaling-groups --profile vy-rnd --region us-east-1"
+    - action: DescribeAutoScalingInstances
+      cli: "aws autoscaling describe-auto-scaling-instances --profile vy-rnd --region us-east-1"
+    - action: DescribeLaunchConfigurations
+      cli: "aws autoscaling describe-launch-configurations --profile vy-rnd --region us-east-1"
+    - action: DescribePolicies
+      cli: "aws autoscaling describe-policies --profile vy-rnd --region us-east-1"
+    - action: DescribeScalingActivities
+      cli: "aws autoscaling describe-scaling-activities --profile vy-rnd --region us-east-1"
+    - action: DescribeScheduledActions
+      cli: "aws autoscaling describe-scheduled-actions --profile vy-rnd --region us-east-1"
+    - action: DescribeTags
+      cli: "aws autoscaling describe-tags --profile vy-rnd --region us-east-1"
+
+  cloudwatch:
+    - action: GetDashboard
+      cli: "aws cloudwatch get-dashboard --dashboard-name <DASHBOARD_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --dashboard-name parameter"
+    - action: GetMetricData
+      cli: "aws cloudwatch get-metric-data --metric-data-queries <QUERIES_JSON> --start-time <START_TIME> --end-time <END_TIME> --profile vy-rnd --region us-east-1"
+      note: "Requires --metric-data-queries, --start-time, and --end-time parameters"
+    - action: GetMetricStatistics
+      cli: "aws cloudwatch get-metric-statistics --namespace <NAMESPACE> --metric-name <METRIC_NAME> --start-time <START_TIME> --end-time <END_TIME> --period <PERIOD> --statistics <STATS> --profile vy-rnd --region us-east-1"
+      note: "Requires multiple parameters"
+    - action: ListDashboards
+      cli: "aws cloudwatch list-dashboards --profile vy-rnd --region us-east-1"
+    - action: ListMetrics
+      cli: "aws cloudwatch list-metrics --profile vy-rnd --region us-east-1"
+    - action: DescribeAlarms
+      cli: "aws cloudwatch describe-alarms --profile vy-rnd --region us-east-1"
+    - action: DescribeAlarmsForMetric
+      cli: "aws cloudwatch describe-alarms-for-metric --metric-name <METRIC_NAME> --namespace <NAMESPACE> --profile vy-rnd --region us-east-1"
+      note: "Requires --metric-name and --namespace parameters"
+
+  cognito-idp:
+    - action: ListUserPools
+      cli: "aws cognito-idp list-user-pools --max-results 60 --profile vy-rnd --region us-east-1"
+    - action: ListIdentityProviders
+      cli: "aws cognito-idp list-identity-providers --user-pool-id <USER_POOL_ID> --profile vy-rnd --region us-east-1"
+      note: "Requires --user-pool-id parameter"
+    - action: ListResourceServers
+      cli: "aws cognito-idp list-resource-servers --user-pool-id <USER_POOL_ID> --profile vy-rnd --region us-east-1"
+      note: "Requires --user-pool-id parameter"
+
+  dynamodb:
+    - action: DescribeBackup
+      cli: "aws dynamodb describe-backup --backup-arn <BACKUP_ARN> --profile vy-rnd --region us-east-1"
+      note: "Requires --backup-arn parameter"
+    - action: DescribeContinuousBackups
+      cli: "aws dynamodb describe-continuous-backups --table-name <TABLE_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --table-name parameter"
+    - action: DescribeGlobalTable
+      cli: "aws dynamodb describe-global-table --global-table-name <TABLE_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --global-table-name parameter"
+    - action: DescribeGlobalTableSettings
+      cli: "aws dynamodb describe-global-table-settings --global-table-name <TABLE_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --global-table-name parameter"
+    - action: DescribeLimits
+      cli: "aws dynamodb describe-limits --profile vy-rnd --region us-east-1"
+    - action: DescribeStream
+      cli: "aws dynamodbstreams describe-stream --stream-arn <STREAM_ARN> --profile vy-rnd --region us-east-1"
+      note: "Uses dynamodbstreams service; requires --stream-arn parameter"
+    - action: DescribeTable
+      cli: "aws dynamodb describe-table --table-name <TABLE_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --table-name parameter"
+    - action: DescribeTimeToLive
+      cli: "aws dynamodb describe-time-to-live --table-name <TABLE_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --table-name parameter"
+    - action: ListBackups
+      cli: "aws dynamodb list-backups --profile vy-rnd --region us-east-1"
+    - action: ListExports
+      cli: "aws dynamodb list-exports --profile vy-rnd --region us-east-1"
+    - action: ListGlobalTables
+      cli: "aws dynamodb list-global-tables --profile vy-rnd --region us-east-1"
+    - action: ListStreams
+      cli: "aws dynamodbstreams list-streams --profile vy-rnd --region us-east-1"
+      note: "Uses dynamodbstreams service"
+    - action: ListTables
+      cli: "aws dynamodb list-tables --profile vy-rnd --region us-east-1"
+    - action: ListTagsOfResource
+      cli: "aws dynamodb list-tags-of-resource --resource-arn <RESOURCE_ARN> --profile vy-rnd --region us-east-1"
+      note: "Requires --resource-arn parameter"
+
+  ec2:
+    - action: DescribeAccountAttributes
+      cli: "aws ec2 describe-account-attributes --profile vy-rnd --region us-east-1"
+    - action: DescribeAddresses
+      cli: "aws ec2 describe-addresses --profile vy-rnd --region us-east-1"
+    - action: DescribeAvailabilityZones
+      cli: "aws ec2 describe-availability-zones --profile vy-rnd --region us-east-1"
+    - action: DescribeBundleTasks
+      cli: "aws ec2 describe-bundle-tasks --profile vy-rnd --region us-east-1"
+    - action: DescribeCarrierGateways
+      cli: "aws ec2 describe-carrier-gateways --profile vy-rnd --region us-east-1"
+    - action: DescribeClassicLinkInstances
+      cli: "aws ec2 describe-classic-link-instances --profile vy-rnd --region us-east-1"
+    - action: DescribeConversionTasks
+      cli: "aws ec2 describe-conversion-tasks --profile vy-rnd --region us-east-1"
+    - action: DescribeCustomerGateways
+      cli: "aws ec2 describe-customer-gateways --profile vy-rnd --region us-east-1"
+    - action: DescribeDhcpOptions
+      cli: "aws ec2 describe-dhcp-options --profile vy-rnd --region us-east-1"
+    - action: DescribeExportTasks
+      cli: "aws ec2 describe-export-tasks --profile vy-rnd --region us-east-1"
+    - action: DescribeFlowLogs
+      cli: "aws ec2 describe-flow-logs --profile vy-rnd --region us-east-1"
+    - action: DescribeHostReservationOfferings
+      cli: "aws ec2 describe-host-reservation-offerings --profile vy-rnd --region us-east-1"
+    - action: DescribeHostReservations
+      cli: "aws ec2 describe-host-reservations --profile vy-rnd --region us-east-1"
+    - action: DescribeHosts
+      cli: "aws ec2 describe-hosts --profile vy-rnd --region us-east-1"
+    - action: DescribeIdentityIdFormat
+      cli: "aws ec2 describe-identity-id-format --principal <PRINCIPAL_ARN> --profile vy-rnd --region us-east-1"
+      note: "Requires --principal parameter"
+    - action: DescribeIdFormat
+      cli: "aws ec2 describe-id-format --profile vy-rnd --region us-east-1"
+    - action: DescribeImageAttribute
+      cli: "aws ec2 describe-image-attribute --image-id <IMAGE_ID> --attribute <ATTRIBUTE> --profile vy-rnd --region us-east-1"
+      note: "Requires --image-id and --attribute parameters"
+    - action: DescribeImages
+      cli: "aws ec2 describe-images --owners self --profile vy-rnd --region us-east-1"
+    - action: DescribeImportImageTasks
+      cli: "aws ec2 describe-import-image-tasks --profile vy-rnd --region us-east-1"
+    - action: DescribeImportSnapshotTasks
+      cli: "aws ec2 describe-import-snapshot-tasks --profile vy-rnd --region us-east-1"
+    - action: DescribeInstanceAttribute
+      cli: "aws ec2 describe-instance-attribute --instance-id <INSTANCE_ID> --attribute <ATTRIBUTE> --profile vy-rnd --region us-east-1"
+      note: "Requires --instance-id and --attribute parameters"
+    - action: DescribeInstanceCreditSpecifications
+      cli: "aws ec2 describe-instance-credit-specifications --profile vy-rnd --region us-east-1"
+    - action: DescribeInstances
+      cli: "aws ec2 describe-instances --profile vy-rnd --region us-east-1"
+    - action: DescribeInstanceStatus
+      cli: "aws ec2 describe-instance-status --profile vy-rnd --region us-east-1"
+    - action: DescribeInstanceTypes
+      cli: "aws ec2 describe-instance-types --profile vy-rnd --region us-east-1"
+    - action: DescribeInternetGateways
+      cli: "aws ec2 describe-internet-gateways --profile vy-rnd --region us-east-1"
+    - action: DescribeKeyPairs
+      cli: "aws ec2 describe-key-pairs --profile vy-rnd --region us-east-1"
+    - action: DescribeLocalGatewayRouteTables
+      cli: "aws ec2 describe-local-gateway-route-tables --profile vy-rnd --region us-east-1"
+    - action: DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociations
+      cli: "aws ec2 describe-local-gateway-route-table-virtual-interface-group-associations --profile vy-rnd --region us-east-1"
+    - action: DescribeLocalGatewayRouteTableVpcAssociations
+      cli: "aws ec2 describe-local-gateway-route-table-vpc-associations --profile vy-rnd --region us-east-1"
+    - action: DescribeLocalGateways
+      cli: "aws ec2 describe-local-gateways --profile vy-rnd --region us-east-1"
+    - action: DescribeLocalGatewayVirtualInterfaceGroups
+      cli: "aws ec2 describe-local-gateway-virtual-interface-groups --profile vy-rnd --region us-east-1"
+    - action: DescribeLocalGatewayVirtualInterfaces
+      cli: "aws ec2 describe-local-gateway-virtual-interfaces --profile vy-rnd --region us-east-1"
+    - action: DescribeMovingAddresses
+      cli: "aws ec2 describe-moving-addresses --profile vy-rnd --region us-east-1"
+    - action: DescribeNatGateways
+      cli: "aws ec2 describe-nat-gateways --profile vy-rnd --region us-east-1"
+    - action: DescribeNetworkAcls
+      cli: "aws ec2 describe-network-acls --profile vy-rnd --region us-east-1"
+    - action: DescribeNetworkInsightsAccessScopeAnalyses
+      cli: "aws ec2 describe-network-insights-access-scope-analyses --profile vy-rnd --region us-east-1"
+    - action: DescribeNetworkInsightsAccessScopes
+      cli: "aws ec2 describe-network-insights-access-scopes --profile vy-rnd --region us-east-1"
+    - action: DescribeNetworkInsightsAnalyses
+      cli: "aws ec2 describe-network-insights-analyses --profile vy-rnd --region us-east-1"
+    - action: DescribeNetworkInsightsPaths
+      cli: "aws ec2 describe-network-insights-paths --profile vy-rnd --region us-east-1"
+    - action: DescribeNetworkInterfaceAttribute
+      cli: "aws ec2 describe-network-interface-attribute --network-interface-id <ENI_ID> --attribute <ATTRIBUTE> --profile vy-rnd --region us-east-1"
+      note: "Requires --network-interface-id and --attribute parameters"
+    - action: DescribeNetworkInterfacePermissions
+      cli: "aws ec2 describe-network-interface-permissions --profile vy-rnd --region us-east-1"
+    - action: DescribeNetworkInterfaces
+      cli: "aws ec2 describe-network-interfaces --profile vy-rnd --region us-east-1"
+    - action: DescribePlacementGroups
+      cli: "aws ec2 describe-placement-groups --profile vy-rnd --region us-east-1"
+    - action: DescribePrefixLists
+      cli: "aws ec2 describe-prefix-lists --profile vy-rnd --region us-east-1"
+    - action: DescribeRegions
+      cli: "aws ec2 describe-regions --profile vy-rnd --region us-east-1"
+    - action: DescribeReservedInstances
+      cli: "aws ec2 describe-reserved-instances --profile vy-rnd --region us-east-1"
+    - action: DescribeReservedInstancesListings
+      cli: "aws ec2 describe-reserved-instances-listings --profile vy-rnd --region us-east-1"
+    - action: DescribeReservedInstancesModifications
+      cli: "aws ec2 describe-reserved-instances-modifications --profile vy-rnd --region us-east-1"
+    - action: DescribeReservedInstancesOfferings
+      cli: "aws ec2 describe-reserved-instances-offerings --profile vy-rnd --region us-east-1"
+    - action: DescribeRouteTables
+      cli: "aws ec2 describe-route-tables --profile vy-rnd --region us-east-1"
+    - action: DescribeSecurityGroupRules
+      cli: "aws ec2 describe-security-group-rules --profile vy-rnd --region us-east-1"
+    - action: DescribeSecurityGroups
+      cli: "aws ec2 describe-security-groups --profile vy-rnd --region us-east-1"
+    - action: DescribeSnapshotAttribute
+      cli: "aws ec2 describe-snapshot-attribute --snapshot-id <SNAPSHOT_ID> --attribute <ATTRIBUTE> --profile vy-rnd --region us-east-1"
+      note: "Requires --snapshot-id and --attribute parameters"
+    - action: DescribeSnapshots
+      cli: "aws ec2 describe-snapshots --owner-ids self --profile vy-rnd --region us-east-1"
+    - action: DescribeSnapshotTierStatus
+      cli: "aws ec2 describe-snapshot-tier-status --profile vy-rnd --region us-east-1"
+    - action: DescribeSpotDatafeedSubscription
+      cli: "aws ec2 describe-spot-datafeed-subscription --profile vy-rnd --region us-east-1"
+    - action: DescribeSpotFleetInstances
+      cli: "aws ec2 describe-spot-fleet-instances --spot-fleet-request-id <REQUEST_ID> --profile vy-rnd --region us-east-1"
+      note: "Requires --spot-fleet-request-id parameter"
+    - action: DescribeSpotFleetRequestHistory
+      cli: "aws ec2 describe-spot-fleet-request-history --spot-fleet-request-id <REQUEST_ID> --start-time <START_TIME> --profile vy-rnd --region us-east-1"
+      note: "Requires --spot-fleet-request-id and --start-time parameters"
+    - action: DescribeSpotFleetRequests
+      cli: "aws ec2 describe-spot-fleet-requests --profile vy-rnd --region us-east-1"
+    - action: DescribeSpotInstanceRequests
+      cli: "aws ec2 describe-spot-instance-requests --profile vy-rnd --region us-east-1"
+    - action: DescribeSpotPriceHistory
+      cli: "aws ec2 describe-spot-price-history --profile vy-rnd --region us-east-1"
+    - action: DescribeSubnets
+      cli: "aws ec2 describe-subnets --profile vy-rnd --region us-east-1"
+    - action: DescribeTags
+      cli: "aws ec2 describe-tags --profile vy-rnd --region us-east-1"
+    - action: DescribeVolumeAttribute
+      cli: "aws ec2 describe-volume-attribute --volume-id <VOLUME_ID> --attribute <ATTRIBUTE> --profile vy-rnd --region us-east-1"
+      note: "Requires --volume-id and --attribute parameters"
+    - action: DescribeVolumes
+      cli: "aws ec2 describe-volumes --profile vy-rnd --region us-east-1"
+    - action: DescribeVolumesModifications
+      cli: "aws ec2 describe-volumes-modifications --profile vy-rnd --region us-east-1"
+    - action: DescribeVolumeStatus
+      cli: "aws ec2 describe-volume-status --profile vy-rnd --region us-east-1"
+    - action: DescribeVpcAttribute
+      cli: "aws ec2 describe-vpc-attribute --vpc-id <VPC_ID> --attribute <ATTRIBUTE> --profile vy-rnd --region us-east-1"
+      note: "Requires --vpc-id and --attribute parameters"
+    - action: DescribeVpcClassicLink
+      cli: "aws ec2 describe-vpc-classic-link --profile vy-rnd --region us-east-1"
+    - action: DescribeVpcClassicLinkDnsSupport
+      cli: "aws ec2 describe-vpc-classic-link-dns-support --profile vy-rnd --region us-east-1"
+    - action: DescribeVpcEndpointConnectionNotifications
+      cli: "aws ec2 describe-vpc-endpoint-connection-notifications --profile vy-rnd --region us-east-1"
+    - action: DescribeVpcEndpointConnections
+      cli: "aws ec2 describe-vpc-endpoint-connections --profile vy-rnd --region us-east-1"
+    - action: DescribeVpcEndpoints
+      cli: "aws ec2 describe-vpc-endpoints --profile vy-rnd --region us-east-1"
+    - action: DescribeVpcEndpointServiceConfigurations
+      cli: "aws ec2 describe-vpc-endpoint-service-configurations --profile vy-rnd --region us-east-1"
+    - action: DescribeVpcEndpointServicePermissions
+      cli: "aws ec2 describe-vpc-endpoint-service-permissions --service-id <SERVICE_ID> --profile vy-rnd --region us-east-1"
+      note: "Requires --service-id parameter"
+    - action: DescribeVpcEndpointServices
+      cli: "aws ec2 describe-vpc-endpoint-services --profile vy-rnd --region us-east-1"
+    - action: DescribeVpcPeeringConnections
+      cli: "aws ec2 describe-vpc-peering-connections --profile vy-rnd --region us-east-1"
+    - action: DescribeVpcs
+      cli: "aws ec2 describe-vpcs --profile vy-rnd --region us-east-1"
+    - action: DescribeVpnConnections
+      cli: "aws ec2 describe-vpn-connections --profile vy-rnd --region us-east-1"
+    - action: DescribeVpnGateways
+      cli: "aws ec2 describe-vpn-gateways --profile vy-rnd --region us-east-1"
+    - action: SearchLocalGatewayRoutes
+      cli: "aws ec2 search-local-gateway-routes --local-gateway-route-table-id <TABLE_ID> --filters <FILTERS> --profile vy-rnd --region us-east-1"
+      note: "Requires --local-gateway-route-table-id and --filters parameters"
+
+  ecr:
+    - action: DescribeRegistry
+      cli: "aws ecr describe-registry --profile vy-rnd --region us-east-1"
+    - action: DescribeRepositories
+      cli: "aws ecr describe-repositories --profile vy-rnd --region us-east-1"
+    - action: ListImages
+      cli: "aws ecr list-images --repository-name <REPO_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --repository-name parameter"
+
+  ecs:
+    - action: DescribeCapacityProviders
+      cli: "aws ecs describe-capacity-providers --profile vy-rnd --region us-east-1"
+    - action: DescribeClusters
+      cli: "aws ecs describe-clusters --profile vy-rnd --region us-east-1"
+    - action: DescribeContainerInstances
+      cli: "aws ecs describe-container-instances --cluster <CLUSTER> --container-instances <INSTANCE_ARNS> --profile vy-rnd --region us-east-1"
+      note: "Requires --cluster and --container-instances parameters"
+    - action: DescribeServices
+      cli: "aws ecs describe-services --cluster <CLUSTER> --services <SERVICE_NAMES> --profile vy-rnd --region us-east-1"
+      note: "Requires --cluster and --services parameters"
+    - action: DescribeTaskDefinition
+      cli: "aws ecs describe-task-definition --task-definition <TASK_DEF> --profile vy-rnd --region us-east-1"
+      note: "Requires --task-definition parameter"
+    - action: DescribeTaskSets
+      cli: "aws ecs describe-task-sets --cluster <CLUSTER> --service <SERVICE> --profile vy-rnd --region us-east-1"
+      note: "Requires --cluster and --service parameters"
+    - action: DescribeTasks
+      cli: "aws ecs describe-tasks --cluster <CLUSTER> --tasks <TASK_ARNS> --profile vy-rnd --region us-east-1"
+      note: "Requires --cluster and --tasks parameters"
+    - action: ListAccountSettings
+      cli: "aws ecs list-account-settings --profile vy-rnd --region us-east-1"
+    - action: ListAttributes
+      cli: "aws ecs list-attributes --target-type container-instance --profile vy-rnd --region us-east-1"
+    - action: ListClusters
+      cli: "aws ecs list-clusters --profile vy-rnd --region us-east-1"
+    - action: ListContainerInstances
+      cli: "aws ecs list-container-instances --cluster <CLUSTER> --profile vy-rnd --region us-east-1"
+      note: "Requires --cluster parameter"
+    - action: ListServices
+      cli: "aws ecs list-services --cluster <CLUSTER> --profile vy-rnd --region us-east-1"
+      note: "Requires --cluster parameter"
+    - action: ListTagsForResource
+      cli: "aws ecs list-tags-for-resource --resource-arn <RESOURCE_ARN> --profile vy-rnd --region us-east-1"
+      note: "Requires --resource-arn parameter"
+    - action: ListTaskDefinitionFamilies
+      cli: "aws ecs list-task-definition-families --profile vy-rnd --region us-east-1"
+    - action: ListTaskDefinitions
+      cli: "aws ecs list-task-definitions --profile vy-rnd --region us-east-1"
+    - action: ListTasks
+      cli: "aws ecs list-tasks --cluster <CLUSTER> --profile vy-rnd --region us-east-1"
+      note: "Requires --cluster parameter"
+
+  eks:
+    - action: ListTagsForResource
+      cli: "aws eks list-tags-for-resource --resource-arn <RESOURCE_ARN> --profile vy-rnd --region us-east-1"
+      note: "Requires --resource-arn parameter"
+    - action: ListClusters
+      cli: "aws eks list-clusters --profile vy-rnd --region us-east-1"
+    - action: DescribeCluster
+      cli: "aws eks describe-cluster --name <CLUSTER_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --name parameter"
+    - action: ListNodegroups
+      cli: "aws eks list-nodegroups --cluster-name <CLUSTER_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --cluster-name parameter"
+
+  efs:
+    - action: DescribeFileSystems
+      cli: "aws efs describe-file-systems --profile vy-rnd --region us-east-1"
+    - action: DescribeMountTargets
+      cli: "aws efs describe-mount-targets --file-system-id <FS_ID> --profile vy-rnd --region us-east-1"
+      note: "Requires --file-system-id parameter"
+    - action: DescribeAccessPoints
+      cli: "aws efs describe-access-points --profile vy-rnd --region us-east-1"
+
+  elasticloadbalancing:
+    - action: DescribeInstanceHealth
+      cli: "aws elb describe-instance-health --load-balancer-name <LB_NAME> --profile vy-rnd --region us-east-1"
+      note: "Classic ELB; requires --load-balancer-name parameter"
+    - action: DescribeListeners
+      cli: "aws elbv2 describe-listeners --load-balancer-arn <LB_ARN> --profile vy-rnd --region us-east-1"
+      note: "ALB/NLB; requires --load-balancer-arn parameter"
+    - action: DescribeLoadBalancerAttributes
+      cli: "aws elbv2 describe-load-balancer-attributes --load-balancer-arn <LB_ARN> --profile vy-rnd --region us-east-1"
+      note: "ALB/NLB; requires --load-balancer-arn parameter"
+    - action: DescribeLoadBalancers
+      cli: "aws elbv2 describe-load-balancers --profile vy-rnd --region us-east-1"
+      note: "ALB/NLB; for Classic ELB use: aws elb describe-load-balancers"
+    - action: DescribeTargetGroups
+      cli: "aws elbv2 describe-target-groups --profile vy-rnd --region us-east-1"
+    - action: DescribeTargetHealth
+      cli: "aws elbv2 describe-target-health --target-group-arn <TG_ARN> --profile vy-rnd --region us-east-1"
+      note: "Requires --target-group-arn parameter"
+    - action: DescribeRules
+      cli: "aws elbv2 describe-rules --listener-arn <LISTENER_ARN> --profile vy-rnd --region us-east-1"
+      note: "Requires --listener-arn parameter"
+    - action: DescribeTags
+      cli: "aws elbv2 describe-tags --resource-arns <RESOURCE_ARNS> --profile vy-rnd --region us-east-1"
+      note: "Requires --resource-arns parameter"
+
+  events:
+    - action: ListRuleNamesByTarget
+      cli: "aws events list-rule-names-by-target --target-arn <TARGET_ARN> --profile vy-rnd --region us-east-1"
+      note: "Requires --target-arn parameter"
+    - action: ListRules
+      cli: "aws events list-rules --profile vy-rnd --region us-east-1"
+    - action: ListTargetsByRule
+      cli: "aws events list-targets-by-rule --rule <RULE_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --rule parameter"
+    - action: ListEventBuses
+      cli: "aws events list-event-buses --profile vy-rnd --region us-east-1"
+
+  glue:
+    - action: GetTags
+      cli: "aws glue get-tags --resource-arn <RESOURCE_ARN> --profile vy-rnd --region us-east-1"
+      note: "Requires --resource-arn parameter"
+    - action: GetDatabases
+      cli: "aws glue get-databases --profile vy-rnd --region us-east-1"
+    - action: GetTables
+      cli: "aws glue get-tables --database-name <DATABASE_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --database-name parameter"
+    - action: GetJobs
+      cli: "aws glue get-jobs --profile vy-rnd --region us-east-1"
+    - action: GetCrawlers
+      cli: "aws glue get-crawlers --profile vy-rnd --region us-east-1"
+    - action: GetConnections
+      cli: "aws glue get-connections --profile vy-rnd --region us-east-1"
+
+  iam:
+    - action: GetAccountSummary
+      cli: "aws iam get-account-summary --profile vy-rnd"
+      note: "IAM is global; no region required"
+    - action: GetLoginProfile
+      cli: "aws iam get-login-profile --user-name <USER_NAME> --profile vy-rnd"
+      note: "Requires --user-name parameter; IAM is global"
+    - action: ListAccessKeys
+      cli: "aws iam list-access-keys --profile vy-rnd"
+      note: "IAM is global; optionally add --user-name"
+    - action: ListAccountAliases
+      cli: "aws iam list-account-aliases --profile vy-rnd"
+    - action: ListAttachedGroupPolicies
+      cli: "aws iam list-attached-group-policies --group-name <GROUP_NAME> --profile vy-rnd"
+      note: "Requires --group-name parameter"
+    - action: ListAttachedRolePolicies
+      cli: "aws iam list-attached-role-policies --role-name <ROLE_NAME> --profile vy-rnd"
+      note: "Requires --role-name parameter"
+    - action: ListAttachedUserPolicies
+      cli: "aws iam list-attached-user-policies --user-name <USER_NAME> --profile vy-rnd"
+      note: "Requires --user-name parameter"
+    - action: ListEntitiesForPolicy
+      cli: "aws iam list-entities-for-policy --policy-arn <POLICY_ARN> --profile vy-rnd"
+      note: "Requires --policy-arn parameter"
+    - action: ListGroupPolicies
+      cli: "aws iam list-group-policies --group-name <GROUP_NAME> --profile vy-rnd"
+      note: "Requires --group-name parameter"
+    - action: ListGroups
+      cli: "aws iam list-groups --profile vy-rnd"
+    - action: ListGroupsForUser
+      cli: "aws iam list-groups-for-user --user-name <USER_NAME> --profile vy-rnd"
+      note: "Requires --user-name parameter"
+    - action: ListInstanceProfiles
+      cli: "aws iam list-instance-profiles --profile vy-rnd"
+    - action: ListInstanceProfilesForRole
+      cli: "aws iam list-instance-profiles-for-role --role-name <ROLE_NAME> --profile vy-rnd"
+      note: "Requires --role-name parameter"
+    - action: ListMFADevices
+      cli: "aws iam list-mfa-devices --profile vy-rnd"
+    - action: ListOpenIDConnectProviders
+      cli: "aws iam list-open-id-connect-providers --profile vy-rnd"
+    - action: ListPolicies
+      cli: "aws iam list-policies --profile vy-rnd"
+    - action: ListPolicyVersions
+      cli: "aws iam list-policy-versions --policy-arn <POLICY_ARN> --profile vy-rnd"
+      note: "Requires --policy-arn parameter"
+    - action: ListRolePolicies
+      cli: "aws iam list-role-policies --role-name <ROLE_NAME> --profile vy-rnd"
+      note: "Requires --role-name parameter"
+    - action: ListRoles
+      cli: "aws iam list-roles --profile vy-rnd"
+    - action: ListRoleTags
+      cli: "aws iam list-role-tags --role-name <ROLE_NAME> --profile vy-rnd"
+      note: "Requires --role-name parameter"
+    - action: ListSAMLProviders
+      cli: "aws iam list-saml-providers --profile vy-rnd"
+    - action: ListServerCertificates
+      cli: "aws iam list-server-certificates --profile vy-rnd"
+    - action: ListServiceSpecificCredentials
+      cli: "aws iam list-service-specific-credentials --profile vy-rnd"
+    - action: ListSigningCertificates
+      cli: "aws iam list-signing-certificates --profile vy-rnd"
+    - action: ListSSHPublicKeys
+      cli: "aws iam list-ssh-public-keys --profile vy-rnd"
+    - action: ListUserPolicies
+      cli: "aws iam list-user-policies --user-name <USER_NAME> --profile vy-rnd"
+      note: "Requires --user-name parameter"
+    - action: ListUsers
+      cli: "aws iam list-users --profile vy-rnd"
+    - action: ListUserTags
+      cli: "aws iam list-user-tags --user-name <USER_NAME> --profile vy-rnd"
+      note: "Requires --user-name parameter"
+    - action: ListVirtualMFADevices
+      cli: "aws iam list-virtual-mfa-devices --profile vy-rnd"
+
+  kafka:
+    - action: ListClusters
+      cli: "aws kafka list-clusters --profile vy-rnd --region us-east-1"
+    - action: ListConfigurations
+      cli: "aws kafka list-configurations --profile vy-rnd --region us-east-1"
+
+  kms:
+    - action: ListKeys
+      cli: "aws kms list-keys --profile vy-rnd --region us-east-1"
+    - action: ListResourceTags
+      cli: "aws kms list-resource-tags --key-id <KEY_ID> --profile vy-rnd --region us-east-1"
+      note: "Requires --key-id parameter"
+    - action: ListAliases
+      cli: "aws kms list-aliases --profile vy-rnd --region us-east-1"
+    - action: DescribeKey
+      cli: "aws kms describe-key --key-id <KEY_ID> --profile vy-rnd --region us-east-1"
+      note: "Requires --key-id parameter"
+
+  lambda:
+    - action: ListAliases
+      cli: "aws lambda list-aliases --function-name <FUNCTION_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --function-name parameter"
+    - action: ListCodeSigningConfigs
+      cli: "aws lambda list-code-signing-configs --profile vy-rnd --region us-east-1"
+    - action: ListEventSourceMappings
+      cli: "aws lambda list-event-source-mappings --profile vy-rnd --region us-east-1"
+    - action: ListFunctionEventInvokeConfigs
+      cli: "aws lambda list-function-event-invoke-configs --function-name <FUNCTION_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --function-name parameter"
+    - action: ListFunctions
+      cli: "aws lambda list-functions --profile vy-rnd --region us-east-1"
+    - action: ListFunctionsByCodeSigningConfig
+      cli: "aws lambda list-functions-by-code-signing-config --code-signing-config-arn <CSC_ARN> --profile vy-rnd --region us-east-1"
+      note: "Requires --code-signing-config-arn parameter"
+    - action: ListFunctionUrlConfigs
+      cli: "aws lambda list-function-url-configs --function-name <FUNCTION_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --function-name parameter"
+    - action: ListLayers
+      cli: "aws lambda list-layers --profile vy-rnd --region us-east-1"
+    - action: ListLayerVersions
+      cli: "aws lambda list-layer-versions --layer-name <LAYER_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --layer-name parameter"
+    - action: ListProvisionedConcurrencyConfigs
+      cli: "aws lambda list-provisioned-concurrency-configs --function-name <FUNCTION_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --function-name parameter"
+    - action: ListTags
+      cli: "aws lambda list-tags --resource <FUNCTION_ARN> --profile vy-rnd --region us-east-1"
+      note: "Requires --resource parameter (function ARN)"
+    - action: ListVersionsByFunction
+      cli: "aws lambda list-versions-by-function --function-name <FUNCTION_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --function-name parameter"
+
+  logs:
+    - action: DescribeDestinations
+      cli: "aws logs describe-destinations --profile vy-rnd --region us-east-1"
+    - action: DescribeExportTasks
+      cli: "aws logs describe-export-tasks --profile vy-rnd --region us-east-1"
+    - action: DescribeLogGroups
+      cli: "aws logs describe-log-groups --profile vy-rnd --region us-east-1"
+    - action: DescribeLogStreams
+      cli: "aws logs describe-log-streams --log-group-name <LOG_GROUP_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --log-group-name parameter"
+    - action: DescribeMetricFilters
+      cli: "aws logs describe-metric-filters --profile vy-rnd --region us-east-1"
+    - action: DescribeQueries
+      cli: "aws logs describe-queries --profile vy-rnd --region us-east-1"
+    - action: DescribeQueryDefinitions
+      cli: "aws logs describe-query-definitions --profile vy-rnd --region us-east-1"
+    - action: DescribeResourcePolicies
+      cli: "aws logs describe-resource-policies --profile vy-rnd --region us-east-1"
+    - action: DescribeSubscriptionFilters
+      cli: "aws logs describe-subscription-filters --log-group-name <LOG_GROUP_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --log-group-name parameter"
+    - action: GetTransformer
+      cli: "aws logs get-transformer --log-group-identifier <LOG_GROUP_ID> --profile vy-rnd --region us-east-1"
+      note: "Requires --log-group-identifier parameter"
+    - action: ListLogGroupsForQuery
+      cli: "aws logs list-log-groups-for-query --query-id <QUERY_ID> --profile vy-rnd --region us-east-1"
+      note: "Requires --query-id parameter"
+    - action: ListTagsForResource
+      cli: "aws logs list-tags-for-resource --resource-arn <RESOURCE_ARN> --profile vy-rnd --region us-east-1"
+      note: "Requires --resource-arn parameter"
+
+  rds:
+    - action: DescribeAccountAttributes
+      cli: "aws rds describe-account-attributes --profile vy-rnd --region us-east-1"
+    - action: DescribeCertificates
+      cli: "aws rds describe-certificates --profile vy-rnd --region us-east-1"
+    - action: DescribeDBClusterEndpoints
+      cli: "aws rds describe-db-cluster-endpoints --profile vy-rnd --region us-east-1"
+    - action: DescribeDBClusterParameterGroups
+      cli: "aws rds describe-db-cluster-parameter-groups --profile vy-rnd --region us-east-1"
+    - action: DescribeDBClusterParameters
+      cli: "aws rds describe-db-cluster-parameters --db-cluster-parameter-group-name <PARAM_GROUP_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --db-cluster-parameter-group-name parameter"
+    - action: DescribeDBClusters
+      cli: "aws rds describe-db-clusters --profile vy-rnd --region us-east-1"
+    - action: DescribeDBClusterSnapshotAttributes
+      cli: "aws rds describe-db-cluster-snapshot-attributes --db-cluster-snapshot-identifier <SNAPSHOT_ID> --profile vy-rnd --region us-east-1"
+      note: "Requires --db-cluster-snapshot-identifier parameter"
+    - action: DescribeDBClusterSnapshots
+      cli: "aws rds describe-db-cluster-snapshots --profile vy-rnd --region us-east-1"
+    - action: DescribeDBEngineVersions
+      cli: "aws rds describe-db-engine-versions --profile vy-rnd --region us-east-1"
+    - action: DescribeDBInstanceAutomatedBackups
+      cli: "aws rds describe-db-instance-automated-backups --profile vy-rnd --region us-east-1"
+    - action: DescribeDBInstances
+      cli: "aws rds describe-db-instances --profile vy-rnd --region us-east-1"
+    - action: DescribeDBLogFiles
+      cli: "aws rds describe-db-log-files --db-instance-identifier <DB_INSTANCE_ID> --profile vy-rnd --region us-east-1"
+      note: "Requires --db-instance-identifier parameter"
+    - action: DescribeDBParameterGroups
+      cli: "aws rds describe-db-parameter-groups --profile vy-rnd --region us-east-1"
+    - action: DescribeDBParameters
+      cli: "aws rds describe-db-parameters --db-parameter-group-name <PARAM_GROUP_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --db-parameter-group-name parameter"
+    - action: DescribeDBProxies
+      cli: "aws rds describe-db-proxies --profile vy-rnd --region us-east-1"
+    - action: DescribeDBSecurityGroups
+      cli: "aws rds describe-db-security-groups --profile vy-rnd --region us-east-1"
+    - action: DescribeDBSnapshotAttributes
+      cli: "aws rds describe-db-snapshot-attributes --db-snapshot-identifier <SNAPSHOT_ID> --profile vy-rnd --region us-east-1"
+      note: "Requires --db-snapshot-identifier parameter"
+    - action: DescribeDBSnapshots
+      cli: "aws rds describe-db-snapshots --profile vy-rnd --region us-east-1"
+    - action: DescribeDBSubnetGroups
+      cli: "aws rds describe-db-subnet-groups --profile vy-rnd --region us-east-1"
+    - action: DescribeEngineDefaultClusterParameters
+      cli: "aws rds describe-engine-default-cluster-parameters --db-parameter-group-family <FAMILY> --profile vy-rnd --region us-east-1"
+      note: "Requires --db-parameter-group-family parameter"
+    - action: DescribeEngineDefaultParameters
+      cli: "aws rds describe-engine-default-parameters --db-parameter-group-family <FAMILY> --profile vy-rnd --region us-east-1"
+      note: "Requires --db-parameter-group-family parameter"
+    - action: DescribeEventCategories
+      cli: "aws rds describe-event-categories --profile vy-rnd --region us-east-1"
+    - action: DescribeEvents
+      cli: "aws rds describe-events --profile vy-rnd --region us-east-1"
+    - action: DescribeEventSubscriptions
+      cli: "aws rds describe-event-subscriptions --profile vy-rnd --region us-east-1"
+    - action: DescribeExportTasks
+      cli: "aws rds describe-export-tasks --profile vy-rnd --region us-east-1"
+    - action: DescribeGlobalClusters
+      cli: "aws rds describe-global-clusters --profile vy-rnd --region us-east-1"
+    - action: DescribeOptionGroupOptions
+      cli: "aws rds describe-option-group-options --engine-name <ENGINE_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --engine-name parameter"
+    - action: DescribeOptionGroups
+      cli: "aws rds describe-option-groups --profile vy-rnd --region us-east-1"
+    - action: DescribeOrderableDBInstanceOptions
+      cli: "aws rds describe-orderable-db-instance-options --engine <ENGINE> --profile vy-rnd --region us-east-1"
+      note: "Requires --engine parameter"
+    - action: DescribePendingMaintenanceActions
+      cli: "aws rds describe-pending-maintenance-actions --profile vy-rnd --region us-east-1"
+    - action: DescribeReservedDBInstances
+      cli: "aws rds describe-reserved-db-instances --profile vy-rnd --region us-east-1"
+    - action: DescribeReservedDBInstancesOfferings
+      cli: "aws rds describe-reserved-db-instances-offerings --profile vy-rnd --region us-east-1"
+    - action: DescribeSourceRegions
+      cli: "aws rds describe-source-regions --profile vy-rnd --region us-east-1"
+
+  redshift:
+    - action: DescribeClusters
+      cli: "aws redshift describe-clusters --profile vy-rnd --region us-east-1"
+    - action: DescribeEvents
+      cli: "aws redshift describe-events --profile vy-rnd --region us-east-1"
+    - action: DescribeClusterSnapshots
+      cli: "aws redshift describe-cluster-snapshots --profile vy-rnd --region us-east-1"
+    - action: DescribeClusterSubnetGroups
+      cli: "aws redshift describe-cluster-subnet-groups --profile vy-rnd --region us-east-1"
+    - action: DescribeClusterParameterGroups
+      cli: "aws redshift describe-cluster-parameter-groups --profile vy-rnd --region us-east-1"
+
+  s3:
+    - action: ListBuckets
+      cli: "aws s3api list-buckets --profile vy-rnd"
+      note: "S3 is global; no region required for listing buckets"
+    - action: ListObjectsV2
+      cli: "aws s3api list-objects-v2 --bucket <BUCKET_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --bucket parameter"
+    - action: ListMultiRegionAccessPoints
+      cli: "aws s3control list-multi-region-access-points --account-id <ACCOUNT_ID> --profile vy-rnd"
+      note: "Uses s3control; requires --account-id parameter"
+    - action: GetBucketLocation
+      cli: "aws s3api get-bucket-location --bucket <BUCKET_NAME> --profile vy-rnd"
+      note: "Requires --bucket parameter"
+    - action: GetBucketVersioning
+      cli: "aws s3api get-bucket-versioning --bucket <BUCKET_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --bucket parameter"
+    - action: GetBucketTagging
+      cli: "aws s3api get-bucket-tagging --bucket <BUCKET_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --bucket parameter"
+    - action: GetBucketPolicy
+      cli: "aws s3api get-bucket-policy --bucket <BUCKET_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --bucket parameter"
+    - action: GetBucketAcl
+      cli: "aws s3api get-bucket-acl --bucket <BUCKET_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --bucket parameter"
+
+  sns:
+    - action: ListEndpointsByPlatformApplication
+      cli: "aws sns list-endpoints-by-platform-application --platform-application-arn <APP_ARN> --profile vy-rnd --region us-east-1"
+      note: "Requires --platform-application-arn parameter"
+    - action: ListOriginationNumbers
+      cli: "aws sns list-origination-numbers --profile vy-rnd --region us-east-1"
+    - action: ListPhoneNumbersOptedOut
+      cli: "aws sns list-phone-numbers-opted-out --profile vy-rnd --region us-east-1"
+    - action: ListPlatformApplications
+      cli: "aws sns list-platform-applications --profile vy-rnd --region us-east-1"
+    - action: ListSMSSandboxPhoneNumbers
+      cli: "aws sns list-sms-sandbox-phone-numbers --profile vy-rnd --region us-east-1"
+    - action: ListSubscriptions
+      cli: "aws sns list-subscriptions --profile vy-rnd --region us-east-1"
+    - action: ListSubscriptionsByTopic
+      cli: "aws sns list-subscriptions-by-topic --topic-arn <TOPIC_ARN> --profile vy-rnd --region us-east-1"
+      note: "Requires --topic-arn parameter"
+    - action: ListTagsForResource
+      cli: "aws sns list-tags-for-resource --resource-arn <RESOURCE_ARN> --profile vy-rnd --region us-east-1"
+      note: "Requires --resource-arn parameter"
+    - action: ListTopics
+      cli: "aws sns list-topics --profile vy-rnd --region us-east-1"
+
+  sqs:
+    - action: GetQueueAttributes
+      cli: "aws sqs get-queue-attributes --queue-url <QUEUE_URL> --attribute-names All --profile vy-rnd --region us-east-1"
+      note: "Requires --queue-url parameter"
+    - action: GetQueueUrl
+      cli: "aws sqs get-queue-url --queue-name <QUEUE_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --queue-name parameter"
+    - action: ListDeadLetterSourceQueues
+      cli: "aws sqs list-dead-letter-source-queues --queue-url <QUEUE_URL> --profile vy-rnd --region us-east-1"
+      note: "Requires --queue-url parameter"
+    - action: ListMessageMoveTasks
+      cli: "aws sqs list-message-move-tasks --source-arn <SOURCE_ARN> --profile vy-rnd --region us-east-1"
+      note: "Requires --source-arn parameter"
+    - action: ListQueues
+      cli: "aws sqs list-queues --profile vy-rnd --region us-east-1"
+    - action: ListQueueTags
+      cli: "aws sqs list-queue-tags --queue-url <QUEUE_URL> --profile vy-rnd --region us-east-1"
+      note: "Requires --queue-url parameter"
+
+  ssm:
+    - action: ListAssociations
+      cli: "aws ssm list-associations --profile vy-rnd --region us-east-1"
+    - action: ListDocuments
+      cli: "aws ssm list-documents --profile vy-rnd --region us-east-1"
+    - action: ListCommands
+      cli: "aws ssm list-commands --profile vy-rnd --region us-east-1"
+    - action: ListComplianceItems
+      cli: "aws ssm list-compliance-items --profile vy-rnd --region us-east-1"
+    - action: ListInventoryEntries
+      cli: "aws ssm list-inventory-entries --instance-id <INSTANCE_ID> --type-name <TYPE_NAME> --profile vy-rnd --region us-east-1"
+      note: "Requires --instance-id and --type-name parameters"
+    - action: DescribeInstanceInformation
+      cli: "aws ssm describe-instance-information --profile vy-rnd --region us-east-1"
+
+  states:
+    - action: ListActivities
+      cli: "aws stepfunctions list-activities --profile vy-rnd --region us-east-1"
+    - action: ListExecutions
+      cli: "aws stepfunctions list-executions --state-machine-arn <STATE_MACHINE_ARN> --profile vy-rnd --region us-east-1"
+      note: "Requires --state-machine-arn parameter"
+    - action: ListMapRuns
+      cli: "aws stepfunctions list-map-runs --execution-arn <EXECUTION_ARN> --profile vy-rnd --region us-east-1"
+      note: "Requires --execution-arn parameter"
+    - action: ListStateMachineAliases
+      cli: "aws stepfunctions list-state-machine-aliases --state-machine-arn <STATE_MACHINE_ARN> --profile vy-rnd --region us-east-1"
+      note: "Requires --state-machine-arn parameter"
+    - action: ListStateMachines
+      cli: "aws stepfunctions list-state-machines --profile vy-rnd --region us-east-1"
+    - action: ListStateMachineVersions
+      cli: "aws stepfunctions list-state-machine-versions --state-machine-arn <STATE_MACHINE_ARN> --profile vy-rnd --region us-east-1"
+      note: "Requires --state-machine-arn parameter"
+    - action: DescribeStateMachine
+      cli: "aws stepfunctions describe-state-machine --state-machine-arn <STATE_MACHINE_ARN> --profile vy-rnd --region us-east-1"
+      note: "Requires --state-machine-arn parameter"
+
+  sts:
+    - action: GetCallerIdentity
+      cli: "aws sts get-caller-identity --profile vy-rnd --region us-east-1"
